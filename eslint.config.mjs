@@ -1,24 +1,22 @@
-import eslint from '@eslint/js'
-import tseslint from 'typescript-eslint'
-import globals from 'globals'
-import prettier from 'eslint-config-prettier'
+import { dirname } from 'path'
+import { fileURLToPath } from 'url'
+import { FlatCompat } from '@eslint/eslintrc'
 
-export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', '**/*.config.*'] },
-  eslint.configs.recommended,
-  ...tseslint.configs.recommended,
-  prettier,
-  {
-    languageOptions: {
-      globals: { ...globals.node },
-      sourceType: 'commonjs',
-    },
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+})
+
+const eslintConfig = [
+  ...compat.config({
+    extends: ['prettier'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-extraneous-class': 'off',
-      '@typescript-eslint/interface-name-prefix': 'off',
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      semi: ['error', 'never'],
+      quotes: ['error', 'single'],
     },
-  },
-)
+  }),
+]
+
+export default eslintConfig
