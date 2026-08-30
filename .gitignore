@@ -1,0 +1,23 @@
+# deps
+node_modules
+
+# build
+dist
+coverage
+
+# env
+.env
+.env.test
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+.idea
+
+# prisma
+prisma/*.db
+prisma/*.db-journal

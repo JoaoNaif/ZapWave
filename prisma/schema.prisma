@@ -1,0 +1,12 @@
+// Schema do ZapWave.
+// Ainda SEM models — as entidades entram nos próximos passos.
+// Referência do modelo de dados: docs/03-entidades.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
