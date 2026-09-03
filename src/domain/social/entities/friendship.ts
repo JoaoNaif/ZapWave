@@ -1,6 +1,7 @@
-import { Entity } from '@/core/entities/entity'
+import { AggregateRoot } from '@/core/entities/aggregate-root'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
+import { FriendCreatedEvent } from '../events/friend-created-event'
 
 export interface FriendshipProps {
   senderId: string
@@ -10,7 +11,7 @@ export interface FriendshipProps {
   updatedAt: Date
 }
 
-export class Friendship extends Entity<FriendshipProps> {
+export class Friendship extends AggregateRoot<FriendshipProps> {
   get senderId() {
     return this.props.senderId
   }
@@ -55,6 +56,12 @@ export class Friendship extends Entity<FriendshipProps> {
       },
       id
     )
+
+    const isNewFriendship = !id
+
+    if (isNewFriendship) {
+      friendship.addDomainEvent(new FriendCreatedEvent(friendship))
+    }
 
     return friendship
   }

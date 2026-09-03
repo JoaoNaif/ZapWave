@@ -1,3 +1,4 @@
+import { DomainEvents } from '@/core/events/domain-events'
 import { FriendshipRepository } from '@/domain/social/applications/repositories/friendship-repository'
 import { Friendship } from '@/domain/social/entities/friendship'
 
@@ -31,16 +32,22 @@ export class InMemoryFriendshipRepository implements FriendshipRepository {
 
   async create(friendship: Friendship): Promise<void> {
     this.items.push(friendship)
+
+    DomainEvents.dispatchEventsForAggregate(friendship.id)
   }
 
   async save(friendship: Friendship): Promise<void> {
-    const itemIndex = this.items.findIndex((item) => item.id === friendship.id)
+    const itemIndex = this.items.findIndex((item) =>
+      item.id.equals(friendship.id)
+    )
 
     this.items[itemIndex] = friendship
   }
 
   async delete(friendship: Friendship): Promise<void> {
-    const itemIndex = this.items.findIndex((item) => item.id === friendship.id)
+    const itemIndex = this.items.findIndex((item) =>
+      item.id.equals(friendship.id)
+    )
 
     this.items.splice(itemIndex, 1)
   }
