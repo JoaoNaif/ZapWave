@@ -43,6 +43,18 @@ export class Friendship extends AggregateRoot<FriendshipProps> {
     this.props.updatedAt = new Date()
   }
 
+  public isAccepted() {
+    return this.props.status === 'accepted'
+  }
+
+  public isRejected() {
+    return this.props.status === 'rejected'
+  }
+
+  public isPending() {
+    return this.props.status === 'pending'
+  }
+
   static create(
     props: Optional<FriendshipProps, 'createdAt' | 'updatedAt' | 'status'>,
     id?: UniqueEntityId

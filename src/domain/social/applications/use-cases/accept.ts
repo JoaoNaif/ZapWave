@@ -30,7 +30,7 @@ export class AcceptUseCase {
       return left(new NotAllowedError())
     }
 
-    if (friendship.status !== 'pending') {
+    if (!friendship.isPending()) {
       return left(new NotAllowedError())
     }
 
