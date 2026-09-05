@@ -1,3 +1,4 @@
+import { ulid } from 'ulid'
 import { Entity } from '@/core/entities/entity'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
@@ -56,7 +57,9 @@ export class Message extends Entity<MessageProps> {
         ...props,
         createdAt: props.createdAt ?? new Date(),
       },
-      id
+      // ULID em vez do UUID v4 padrão: ordenável por tempo, usado como
+      // cursor de paginação do histórico (ver docs/03-entidades.md, 3.5)
+      id ?? new UniqueEntityId(ulid())
     )
 
     return message
