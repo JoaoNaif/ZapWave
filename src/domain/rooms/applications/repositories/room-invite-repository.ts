@@ -6,6 +6,10 @@ export abstract class RoomInviteRepository {
     conversationId: string,
     inviteeId: string
   ): Promise<RoomInvite | null>
+  abstract findManyByIviteeIdWithStausPending(
+    inviteeId: string,
+    status: string
+  ): Promise<RoomInvite[]>
   abstract create(roominvite: RoomInvite): Promise<void>
   abstract save(roominvite: RoomInvite): Promise<void>
   abstract delete(roominvite: RoomInvite): Promise<void>
