@@ -3,7 +3,7 @@ import { RegisterUserUseCase } from './register-user'
 import { InMemoryUserRepository } from 'test/repositories/in-memory-user-repository'
 import { FakeHasher } from 'test/cryptography/fake-hasher'
 import { makeUser } from 'test/factories/make-user'
-import { UserAlreadyExistsError } from '../errors/user-already-exists-error'
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 
 let inMemoryUserRepository: InMemoryUserRepository
 let fakeHasher: FakeHasher
@@ -79,7 +79,7 @@ describe('Register User', () => {
     })
 
     expect(result.isLeft()).toBe(true)
-    expect(result.value).toBeInstanceOf(UserAlreadyExistsError)
+    expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
     expect(inMemoryUserRepository.items).toHaveLength(1)
   })
 
@@ -94,7 +94,7 @@ describe('Register User', () => {
     })
 
     expect(result.isLeft()).toBe(true)
-    expect(result.value).toBeInstanceOf(UserAlreadyExistsError)
+    expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
     expect(inMemoryUserRepository.items).toHaveLength(1)
   })
 })

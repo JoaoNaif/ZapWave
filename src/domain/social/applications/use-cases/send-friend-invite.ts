@@ -1,5 +1,5 @@
 import { Either, left, right } from '@/core/either'
-import { InviteAlreadyExistsError } from '../errors/invite-already-error'
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 import { Friendship } from '../../entities/friendship'
 import { FriendshipRepository } from '../repositories/friendship-repository'
 import { UserRepository } from '@/domain/accounts/applications/repositories/user-repository'
@@ -12,7 +12,7 @@ interface SendFriendInviteReq {
 }
 
 type SendFriendInviteRes = Either<
-  ResourceNotFoundError | NotAllowedError | InviteAlreadyExistsError,
+  ResourceNotFoundError | NotAllowedError | ResourceAlreadyExistsError,
   {
     friendship: Friendship
   }
@@ -51,7 +51,7 @@ export class SendFriendInviteUseCase {
       ))
 
     if (existingFriendship)
-      return left(new InviteAlreadyExistsError('friendship'))
+      return left(new ResourceAlreadyExistsError('friendship'))
 
     const friendship = Friendship.create({
       recipientId,

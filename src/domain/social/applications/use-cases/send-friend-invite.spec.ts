@@ -7,7 +7,7 @@ import { makeFriendship } from 'test/factories/make-friendship'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
-import { InviteAlreadyExistsError } from '../errors/invite-already-error'
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 
 let inMemoryFriendshipRepository: InMemoryFriendshipRepository
 let inMemoryUserRepository: InMemoryUserRepository
@@ -108,7 +108,7 @@ describe('Send Friend Invite', () => {
     })
 
     expect(result.isLeft()).toBe(true)
-    expect(result.value).toBeInstanceOf(InviteAlreadyExistsError)
+    expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
     expect(inMemoryFriendshipRepository.items).toHaveLength(1)
   })
 
@@ -130,7 +130,7 @@ describe('Send Friend Invite', () => {
     })
 
     expect(result.isLeft()).toBe(true)
-    expect(result.value).toBeInstanceOf(InviteAlreadyExistsError)
+    expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
     expect(inMemoryFriendshipRepository.items).toHaveLength(1)
   })
 })

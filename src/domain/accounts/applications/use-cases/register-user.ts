@@ -1,5 +1,5 @@
 import { Either, left, right } from '@/core/either'
-import { UserAlreadyExistsError } from '../errors/user-already-exists-error'
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 import { User } from '../../entities/user'
 import { UserRepository } from '../repositories/user-repository'
 import { HashGenerator } from '../cryptography/hash-generator'
@@ -14,7 +14,7 @@ interface RegisterUserReq {
 }
 
 type RegisterUserRes = Either<
-  UserAlreadyExistsError,
+  ResourceAlreadyExistsError,
   {
     user: UserDto
   }
@@ -35,14 +35,14 @@ export class RegisterUserUseCase {
     const userWithSameEmail = await this.userRepository.findByEmail(email)
 
     if (userWithSameEmail) {
-      return left(new UserAlreadyExistsError('email'))
+      return left(new ResourceAlreadyExistsError('email'))
     }
 
     const userWithSameUsername =
       await this.userRepository.findByUsername(username)
 
     if (userWithSameUsername) {
-      return left(new UserAlreadyExistsError('username'))
+      return left(new ResourceAlreadyExistsError('username'))
     }
 
     const hashedPassword = await this.hashGenerator.hash(password)
