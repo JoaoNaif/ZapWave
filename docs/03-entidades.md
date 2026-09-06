@@ -273,9 +273,12 @@ Convidado aceita → `RoomInvite.status=accepted` + `ConversationMember(invitee,
 Convidado recusa → `RoomInvite.status=declined`.
 
 ### Remover membro / sair da sala
-Remover (admin): apaga a linha `ConversationMember` do alvo.
-Sair: o próprio membro apaga sua linha.
-**Em aberto:** o que acontece quando o `owner` sai (transferir dono? apagar sala? bloquear a saída?).
+Remover (`remove-member`): `owner`/`admin` apaga a linha `ConversationMember` do alvo.
+Regras: não dá pra remover a si mesmo (isso é `leave-room`); o `owner` nunca é removido;
+`admin` só remove `member` (não outro `admin` nem o `owner`); `owner` remove qualquer um.
+Sair (`leave-room`): o próprio membro apaga sua linha.
+**Decisão:** o `owner` **não pode sair** — recebe `NotAllowedError`. Transferir dono é um
+use-case à parte que ainda não existe; enquanto não existir, a saída fica bloqueada.
 
 ### Enviar mensagem
 Ver seção 4 (inbox por device).
@@ -293,7 +296,8 @@ para aquele device.
 ## 8. Pontos ainda em aberto (não bloqueiam o modelo)
 
 1. Semântica de `blocked` em `Friendship` (adicionar `blockedById`?).
-2. `owner` saindo de uma sala: transferir, apagar ou impedir?
+2. `owner` saindo de uma sala: resolvido por ora — **impedir** (ver §7). Falta o
+   use-case de transferir dono, que destravaria a saída.
 3. Recusar pedido de amizade / convite: apagar a linha ou manter com `status`?
 4. Atrelar `tokenHash` (refresh token) ao `Device`.
 5. Esquema final de id de `Message` (ULID) e uso de `clientMessageId` para idempotência.
