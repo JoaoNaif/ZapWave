@@ -34,7 +34,7 @@ export class AcceptUseCase {
       return left(new NotAllowedError())
     }
 
-    friendship.status = 'accepted'
+    friendship.accept()
 
     await this.friendshipRepository.save(friendship)
 

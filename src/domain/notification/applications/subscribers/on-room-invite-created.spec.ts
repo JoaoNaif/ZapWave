@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi, MockInstance } from 'vitest'
-import { makeFriendship } from 'test/factories/make-friendship'
-import { InMemoryFriendshipRepository } from 'test/repositories/in-memory-friendship-repository'
+import { makeRoomInvite } from 'test/factories/make-room-invite'
+import { InMemoryRoomInviteRepository } from 'test/repositories/in-memory-room-invite-repository'
 import { InMemoryNotificationsRepository } from 'test/repositories/in-memory-notification-repository'
+import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import {
   SendNotificationUseCase,
   SendNotificationUseCaseRequest,
   SendNotificationUseCaseResponse,
 } from '../use-cases/send-notification'
-import { OnFriendshipCreated } from './on-friendship-created'
+import { OnRoomInviteCreated } from './on-room-invite-created'
 
-let inMemoryFriendshipRepository: InMemoryFriendshipRepository
+let inMemoryRoomInviteRepository: InMemoryRoomInviteRepository
 let inMemoryNotificationsRepository: InMemoryNotificationsRepository
 let sendNotificationUseCase: SendNotificationUseCase
 
@@ -19,9 +20,9 @@ let sendNotificationExecuteSpy: MockInstance<
   ) => Promise<SendNotificationUseCaseResponse>
 >
 
-describe('On Friendship Created', () => {
+describe('On Room Invite Created', () => {
   beforeEach(() => {
-    inMemoryFriendshipRepository = new InMemoryFriendshipRepository()
+    inMemoryRoomInviteRepository = new InMemoryRoomInviteRepository()
     inMemoryNotificationsRepository = new InMemoryNotificationsRepository()
     sendNotificationUseCase = new SendNotificationUseCase(
       inMemoryNotificationsRepository
@@ -29,23 +30,26 @@ describe('On Friendship Created', () => {
 
     sendNotificationExecuteSpy = vi.spyOn(sendNotificationUseCase, 'execute')
 
-    new OnFriendshipCreated(sendNotificationUseCase)
+    new OnRoomInviteCreated(sendNotificationUseCase)
   })
 
-  it('should send a notification to the recipient when a friendship is created', async () => {
-    const friendship = makeFriendship()
+  it('should send a notification to the invitee when a room invite is created', async () => {
+    const roomInvite = makeRoomInvite({
+      inviterId: new UniqueEntityId('inviter-1'),
+      inviteeId: new UniqueEntityId('invitee-1'),
+    })
 
-    await inMemoryFriendshipRepository.create(friendship)
+    await inMemoryRoomInviteRepository.create(roomInvite)
 
     expect(sendNotificationExecuteSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        recipientId: friendship.recipientId,
+        recipientId: 'invitee-1',
       })
     )
 
     expect(inMemoryNotificationsRepository.items).toHaveLength(1)
     expect(
       inMemoryNotificationsRepository.items[0].recipientId.toString()
-    ).toBe(friendship.recipientId)
+    ).toBe('invitee-1')
   })
 })

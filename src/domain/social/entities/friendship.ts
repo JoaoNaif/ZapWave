@@ -2,6 +2,7 @@ import { AggregateRoot } from '@/core/entities/aggregate-root'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
 import { FriendCreatedEvent } from '../events/friend-created-event'
+import { FriendAcceptedEvent } from '../events/friend-accepted-event'
 
 export interface FriendshipProps {
   senderId: string
@@ -41,6 +42,11 @@ export class Friendship extends AggregateRoot<FriendshipProps> {
 
   private touch() {
     this.props.updatedAt = new Date()
+  }
+
+  public accept() {
+    this.status = 'accepted'
+    this.addDomainEvent(new FriendAcceptedEvent(this))
   }
 
   public isAccepted() {

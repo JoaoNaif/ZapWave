@@ -42,6 +42,8 @@ export class InMemoryFriendshipRepository implements FriendshipRepository {
     )
 
     this.items[itemIndex] = friendship
+
+    DomainEvents.dispatchEventsForAggregate(friendship.id)
   }
 
   async delete(friendship: Friendship): Promise<void> {

@@ -1,3 +1,4 @@
+import { DomainEvents } from '@/core/events/domain-events'
 import { RoomInviteRepository } from '@/domain/rooms/applications/repositories/room-invite-repository'
 import { RoomInvite } from '@/domain/rooms/entities/room-invite'
 
@@ -33,6 +34,8 @@ export class InMemoryRoomInviteRepository implements RoomInviteRepository {
 
   async create(roomInvite: RoomInvite): Promise<void> {
     this.items.push(roomInvite)
+
+    DomainEvents.dispatchEventsForAggregate(roomInvite.id)
   }
 
   async save(roomInvite: RoomInvite): Promise<void> {
@@ -41,6 +44,8 @@ export class InMemoryRoomInviteRepository implements RoomInviteRepository {
     )
 
     this.items[itemIndex] = roomInvite
+
+    DomainEvents.dispatchEventsForAggregate(roomInvite.id)
   }
 
   async delete(roomInvite: RoomInvite): Promise<void> {

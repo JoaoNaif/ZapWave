@@ -1,6 +1,8 @@
-import { Entity } from '@/core/entities/entity'
+import { AggregateRoot } from '@/core/entities/aggregate-root'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
+import { RoomInviteCreatedEvent } from '../events/room-invite-created-event'
+import { RoomInviteAcceptedEvent } from '../events/room-invite-accepted-event'
 
 export interface RoomInviteProps {
   conversationId: UniqueEntityId
@@ -11,7 +13,7 @@ export interface RoomInviteProps {
   respondedAt: Date | null
 }
 
-export class RoomInvite extends Entity<RoomInviteProps> {
+export class RoomInvite extends AggregateRoot<RoomInviteProps> {
   get conversationId() {
     return this.props.conversationId
   }
@@ -56,6 +58,12 @@ export class RoomInvite extends Entity<RoomInviteProps> {
     this.props.respondedAt = respondedAt
   }
 
+  accept() {
+    this.props.status = 'accepted'
+    this.props.respondedAt = new Date()
+    this.addDomainEvent(new RoomInviteAcceptedEvent(this))
+  }
+
   static create(
     props: Optional<RoomInviteProps, 'createdAt' | 'respondedAt'>,
     id?: UniqueEntityId
@@ -68,6 +76,12 @@ export class RoomInvite extends Entity<RoomInviteProps> {
       },
       id
     )
+
+    const isNewRoomInvite = !id
+
+    if (isNewRoomInvite) {
+      roomInvite.addDomainEvent(new RoomInviteCreatedEvent(roomInvite))
+    }
 
     return roomInvite
   }

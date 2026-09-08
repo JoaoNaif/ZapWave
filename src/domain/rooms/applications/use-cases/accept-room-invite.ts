@@ -64,8 +64,7 @@ export class AcceptRoomInviteUseCase {
 
     await this.conversationMemberRepository.create(member)
 
-    invite.status = 'accepted'
-    invite.respondedAt = new Date()
+    invite.accept()
 
     // TODO(infra): o create() do ConversationMember e o save() do RoomInvite são
     // duas escritas separadas — se cair no meio, o usuário entra na sala mas o

@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi, MockInstance } from 'vitest'
 import { makeFriendship } from 'test/factories/make-friendship'
 import { InMemoryFriendshipRepository } from 'test/repositories/in-memory-friendship-repository'
 import { InMemoryNotificationsRepository } from 'test/repositories/in-memory-notification-repository'
+import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import {
   SendNotificationUseCase,
   SendNotificationUseCaseRequest,
   SendNotificationUseCaseResponse,
 } from '../use-cases/send-notification'
-import { OnFriendshipCreated } from './on-friendship-created'
+import { OnFriendshipAccepted } from './on-friendship-accepted'
 
 let inMemoryFriendshipRepository: InMemoryFriendshipRepository
 let inMemoryNotificationsRepository: InMemoryNotificationsRepository
@@ -19,7 +20,7 @@ let sendNotificationExecuteSpy: MockInstance<
   ) => Promise<SendNotificationUseCaseResponse>
 >
 
-describe('On Friendship Created', () => {
+describe('On Friendship Accepted', () => {
   beforeEach(() => {
     inMemoryFriendshipRepository = new InMemoryFriendshipRepository()
     inMemoryNotificationsRepository = new InMemoryNotificationsRepository()
@@ -29,23 +30,29 @@ describe('On Friendship Created', () => {
 
     sendNotificationExecuteSpy = vi.spyOn(sendNotificationUseCase, 'execute')
 
-    new OnFriendshipCreated(sendNotificationUseCase)
+    new OnFriendshipAccepted(sendNotificationUseCase)
   })
 
-  it('should send a notification to the recipient when a friendship is created', async () => {
-    const friendship = makeFriendship()
+  it('should send a notification to the sender when the friendship is accepted', async () => {
+    const friendship = makeFriendship(
+      { senderId: 'sender-1', recipientId: 'recipient-1', status: 'pending' },
+      new UniqueEntityId('friendship-1')
+    )
 
     await inMemoryFriendshipRepository.create(friendship)
 
+    friendship.accept()
+    await inMemoryFriendshipRepository.save(friendship)
+
     expect(sendNotificationExecuteSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        recipientId: friendship.recipientId,
+        recipientId: 'sender-1',
       })
     )
 
     expect(inMemoryNotificationsRepository.items).toHaveLength(1)
     expect(
       inMemoryNotificationsRepository.items[0].recipientId.toString()
-    ).toBe(friendship.recipientId)
+    ).toBe('sender-1')
   })
 })

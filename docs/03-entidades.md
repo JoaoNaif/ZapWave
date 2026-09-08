@@ -172,6 +172,21 @@ Eventos sociais/sistema que precisam sobreviver entre sessões.
   pendentes + contador de não lidas (Redis). `Notification` é só evento social/sistema,
   senão a tabela explode.
 
+**Como é disparada (domain events).** A entidade de origem é um `AggregateRoot` e
+adiciona um evento; um subscriber em `notification/applications/subscribers/` escuta e
+chama `SendNotificationUseCase`. O repositório (in-memory / Prisma) chama
+`DomainEvents.dispatchEventsForAggregate(id)` no `create` **e** no `save`.
+
+| `type` | Evento | Aggregate | Disparado em | Subscriber | Destinatário |
+|--------|--------|-----------|--------------|------------|--------------|
+| `friend_request` | `FriendCreatedEvent` | `Friendship` | `create()` (novo) | `OnFriendshipCreated` | recipient |
+| `friend_accepted` | `FriendAcceptedEvent` | `Friendship` | `friendship.accept()` | `OnFriendshipAccepted` | sender |
+| `room_invite` | `RoomInviteCreatedEvent` | `RoomInvite` | `create()` (novo) | `OnRoomInviteCreated` | invitee |
+| `room_invite_accepted` | `RoomInviteAcceptedEvent` | `RoomInvite` | `roomInvite.accept()` | `OnRoomInviteAccepted` | inviter |
+
+`decline` (amizade e sala) e `remove-member` / `leave-room` **não** geram `Notification`
+por ora — não há `type` previsto. Menção `@user` fica pra fase posterior.
+
 ---
 
 ## 4. Inbox por device (modelo de entrega escolhido)
