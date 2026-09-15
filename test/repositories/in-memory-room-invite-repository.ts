@@ -32,6 +32,16 @@ export class InMemoryRoomInviteRepository implements RoomInviteRepository {
     return roomInvite
   }
 
+  async findManyByIviteeIdWithStausPending(
+    inviteeId: string,
+    status: string
+  ): Promise<RoomInvite[]> {
+    return this.items.filter(
+      (item) =>
+        item.inviteeId.toString() === inviteeId && item.status === status
+    )
+  }
+
   async create(roomInvite: RoomInvite): Promise<void> {
     this.items.push(roomInvite)
 
