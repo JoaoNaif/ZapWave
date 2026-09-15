@@ -10,3 +10,162 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id                   String               @id @default(uuid())
+  username             String               @unique
+  displayName          String               @map("display_name")
+  email                String               @unique
+  passwordHash         String               @map("password_hash")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @default(now()) @map("updated_at")
+  devices              Device[]
+  conversations        Conversation[]
+  senderFriendships    Friendship[]         @relation("SenderFriendships")
+  recipientFriendships Friendship[]         @relation("RecipientFriendships")
+  conversationMembers  ConversationMember[]
+  messages             Message[]
+  inviteeRooms         RoomInvite[]         @relation("InviteeRooms")
+  inviterRooms         RoomInvite[]         @relation("InviterRooms")
+  notifications        Notification[]
+
+  @@map("users")
+}
+
+enum StatusFriendship {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Friendship {
+  id          String           @id @default(uuid())
+  senderId    String           @map("sender_id")
+  recipientId String           @map("recipient_id")
+  // par (senderId, recipientId) normalizado — ver Friendship.pairKey no domínio.
+  // impede A→B e B→A duplicados independente de quem enviou o pedido.
+  pairKey     String           @unique @map("pair_key")
+  status      StatusFriendship
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @map("updated_at")
+
+  sender    User @relation("SenderFriendships", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("RecipientFriendships", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("friendships")
+}
+
+enum TypeConversation {
+  DM
+  ROOM
+}
+
+model Conversation {
+  id          String           @id @default(uuid())
+  type        TypeConversation
+  name        String?
+  createdById String           @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  // só preenchido quando type = DM: par de participantes normalizado
+  // (menor id + ':' + maior id), pra impedir 2 DMs pro mesmo par.
+  // TODO(infra): calcular e passar ao criar a Conversation em
+  // open-direct-conversation.ts / no repositório Prisma.
+  dmKey       String?          @unique @map("dm_key")
+
+  user                User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  conversationMembers ConversationMember[]
+  messages            Message[]
+  roomInvites         RoomInvite[]
+
+  @@map("conversations")
+}
+
+enum RoleConversationMember {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model ConversationMember {
+  id             String @id @default(uuid())
+  conversationId String @map("conversation_id")
+  userId         String @map("user_id")
+
+  conversation      Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role              RoleConversationMember
+  joinedAt          DateTime               @default(now()) @map("joined_at")
+  lastReadMessageId String?                @map("last_read_message_id")
+
+  lastReadMessage Message? @relation(fields: [lastReadMessageId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversations_members")
+}
+
+model Message {
+  id              String   @id @default(ulid())
+  conversationId  String   @map("conversation_id")
+  senderId        String   @map("sender_id")
+  body            String
+  clientMessageId String?  @map("client_message_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  conversation        Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender              User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  devices             Device[]
+  conversationMembers ConversationMember[]
+
+  @@map("messages")
+}
+
+model Device {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  name           String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  lastSeenAt     DateTime  @default(now()) @map("last_seen_at")
+  resumeCursorId String?   @map("resume_cursor_id")
+  revokedAt      DateTime? @map("revoked_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeCursor Message? @relation(fields: [resumeCursorId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+enum StatusRoomInvite {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+model RoomInvite {
+  id             String           @id @default(uuid())
+  conversationId String           @map("conversation_id")
+  inviterId      String           @map("inviter_id")
+  inviteeId      String           @map("invitee_id")
+  status         StatusRoomInvite
+  createdAt      DateTime         @default(now()) @map("created_at")
+  respondedAt    DateTime?        @map("responded_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("InviterRooms", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee      User         @relation("InviteeRooms", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@map("rooms_invites")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  recipientId String    @map("recipient_id")
+  title       String
+  content     String
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
