@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common'
+import { Public } from '@/infra/auth/public'
 
 /**
  * Placeholder de infraestrutura só para confirmar que o app sobe.
@@ -6,6 +7,7 @@ import { Controller, Get } from '@nestjs/common'
  * (ping no Postgres e no Redis) for implementado.
  */
 @Controller('health')
+@Public()
 export class HealthController {
   @Get()
   handle() {

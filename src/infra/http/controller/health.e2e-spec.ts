@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
 import { AppModule } from '@/infra/app.module'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 describe('Health (e2e)', () => {
   let app: INestApplication
