@@ -12,7 +12,8 @@ export const envSchema = z.object({
   REDIS_PORT: z.coerce.number().default(6379),
   REDIS_DB: z.coerce.number().default(0),
 
-  JWT_SECRET: z.string(),
+  JWT_PRIVATE_KEY: z.string(),
+  JWT_PUBLIC_KEY: z.string(),
 })
 
 export type Env = z.infer<typeof envSchema>
