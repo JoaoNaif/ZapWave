@@ -88,9 +88,11 @@ export class OpenDirectConversationUseCase {
     }
 
     // TODO(infra): check-then-act — duas chamadas concorrentes podem passar
-    // por aqui ao mesmo tempo e criar 2 DMs pro mesmo par. Resolver com
-    // constraint única (par normalizado userA+userB) no schema do Prisma e
-    // capturar a violação aqui pra re-buscar em vez de duplicar.
+    // por aqui ao mesmo tempo e criar 2 DMs pro mesmo par. Conversation.dmKey
+    // (prisma/schema.prisma) já tem a constraint única (par normalizado
+    // userId+friendId); falta o repositório Prisma calcular esse valor no
+    // create() e este use-case capturar a violação pra re-buscar em vez de
+    // duplicar.
     //
     // TODO(infra): create() da Conversation + dos 2 ConversationMember são
     // 3 escritas separadas — se o processo cair no meio, sobra Conversation

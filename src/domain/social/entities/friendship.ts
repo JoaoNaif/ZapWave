@@ -35,6 +35,10 @@ export class Friendship extends AggregateRoot<FriendshipProps> {
     return this.props.status
   }
 
+  get pairKey() {
+    return [this.props.senderId, this.props.recipientId].sort().join(':')
+  }
+
   set status(status: 'pending' | 'accepted' | 'rejected') {
     this.props.status = status
     this.touch()
