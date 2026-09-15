@@ -3,6 +3,7 @@ import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { DevicesRepository } from '../repositories/device-repository'
 import { SessionGateway } from '../gateways/session-gateway'
+import { Injectable } from '@nestjs/common'
 
 interface RevokeDeviceReq {
   userId: string // quem está pedindo (vem do token)
@@ -11,6 +12,7 @@ interface RevokeDeviceReq {
 
 type RevokeDeviceRes = Either<ResourceNotFoundError | NotAllowedError, null>
 
+@Injectable()
 export class RevokeDeviceUseCase {
   constructor(
     private devicesRepository: DevicesRepository,

@@ -5,6 +5,7 @@ import { UserRepository } from '../repositories/user-repository'
 import { HashGenerator } from '../cryptography/hash-generator'
 import { UserDto } from '../dtos/user-dto'
 import { UserMapper } from '../mappers/user-mapper'
+import { Injectable } from '@nestjs/common'
 
 interface RegisterUserReq {
   username: string
@@ -20,6 +21,7 @@ type RegisterUserRes = Either<
   }
 >
 
+@Injectable()
 export class RegisterUserUseCase {
   constructor(
     private userRepository: UserRepository,

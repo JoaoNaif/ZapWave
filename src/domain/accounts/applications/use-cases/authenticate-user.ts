@@ -6,6 +6,7 @@ import { Encrypter } from '../cryptography/encrypter'
 import { WrongCredentialsError } from '../errors/wrong-credentials-error'
 import { DevicesRepository } from '../repositories/device-repository'
 import { Device } from '../../entities/device'
+import { Injectable } from '@nestjs/common'
 
 interface AuthenticateUserReq {
   email: string
@@ -21,6 +22,7 @@ type AuthenticateUserRes = Either<
   }
 >
 
+@Injectable()
 export class AuthenticateUserUseCase {
   constructor(
     private userRepository: UserRepository,
