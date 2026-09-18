@@ -3,6 +3,7 @@ import { FriendshipRepository } from '../repositories/friendship-repository'
 import { UserRepository } from '@/domain/accounts/applications/repositories/user-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { Injectable } from '@nestjs/common'
 
 interface AcceptReq {
   userId: string
@@ -11,6 +12,7 @@ interface AcceptReq {
 
 type AcceptRes = Either<ResourceNotFoundError | NotAllowedError, null>
 
+@Injectable()
 export class AcceptUseCase {
   constructor(
     private friendshipRepository: FriendshipRepository,

@@ -11,6 +11,12 @@ import { RegisterUserUseCase } from '@/domain/accounts/applications/use-cases/re
 import { RevokeDeviceUseCase } from '@/domain/accounts/applications/use-cases/revoke-device'
 import { SessionGateway } from '@/domain/accounts/applications/gateways/session-gateway'
 import { NoopSessionGateway } from '../gateways/noop-session-gateway'
+import { SendFriendInviteController } from './controllers/social/send-friend-invite.controller'
+import { AcceptController } from './controllers/social/accept.controller'
+import { DeclineController } from './controllers/social/decline.controller'
+import { SendFriendInviteUseCase } from '@/domain/social/applications/use-cases/send-friend-invite'
+import { AcceptUseCase } from '@/domain/social/applications/use-cases/accept'
+import { DeclineUseCase } from '@/domain/social/applications/use-cases/decline'
 
 @Module({
   imports: [DatabaseModule, CryptographyModule, EnvModule],
@@ -18,12 +24,18 @@ import { NoopSessionGateway } from '../gateways/noop-session-gateway'
     AuthenticateUserController,
     RegisterUserController,
     RevokeDeviceController,
+    SendFriendInviteController,
+    AcceptController,
+    DeclineController,
     HealthController,
   ],
   providers: [
     AuthenticateUserUseCase,
     RegisterUserUseCase,
     RevokeDeviceUseCase,
+    SendFriendInviteUseCase,
+    AcceptUseCase,
+    DeclineUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
   ],
 })

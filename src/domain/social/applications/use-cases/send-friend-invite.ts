@@ -5,6 +5,9 @@ import { FriendshipRepository } from '../repositories/friendship-repository'
 import { UserRepository } from '@/domain/accounts/applications/repositories/user-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { Injectable } from '@nestjs/common'
+import { FriendshipDto } from '../dtos/friendship-dto'
+import { FriendshipMapper } from '../mappers/friendship-mapper'
 
 interface SendFriendInviteReq {
   senderId: string
@@ -14,10 +17,11 @@ interface SendFriendInviteReq {
 type SendFriendInviteRes = Either<
   ResourceNotFoundError | NotAllowedError | ResourceAlreadyExistsError,
   {
-    friendship: Friendship
+    friendship: FriendshipDto
   }
 >
 
+@Injectable()
 export class SendFriendInviteUseCase {
   constructor(
     private friendshipRepository: FriendshipRepository,
@@ -61,7 +65,7 @@ export class SendFriendInviteUseCase {
     await this.friendshipRepository.create(friendship)
 
     return right({
-      friendship: friendship,
+      friendship: FriendshipMapper.toDto(friendship),
     })
   }
 }

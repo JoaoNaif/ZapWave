@@ -10,34 +10,33 @@ import {
 } from '@nestjs/common'
 import z from 'zod'
 import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
-import { RevokeDeviceUseCase } from '@/domain/accounts/applications/use-cases/revoke-device'
 import { CurrentUser } from '@/infra/auth/current-user-decorator'
 import { UserPayload } from '@/infra/auth/jwt-strategy'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { DeclineUseCase } from '@/domain/social/applications/use-cases/decline'
 
-const revokeDeviceBodySchema = z.object({
-  deviceId: z.string().uuid(),
+const declineBodySchema = z.object({
+  friendshipId: z.string().uuid(),
 })
 
-type RevokeDeviceBodySchema = z.infer<typeof revokeDeviceBodySchema>
+type DeclineBodySchema = z.infer<typeof declineBodySchema>
 
 @Controller()
-export class RevokeDeviceController {
-  constructor(private revokeDevice: RevokeDeviceUseCase) {}
+export class DeclineController {
+  constructor(private decline: DeclineUseCase) {}
 
-  @Put('/revoke-device')
+  @Put('/invite-friendship-decline')
   @HttpCode(204)
   async handle(
-    @Body(new ZodValidationPipe(revokeDeviceBodySchema))
-    body: RevokeDeviceBodySchema,
+    @Body(new ZodValidationPipe(declineBodySchema)) body: DeclineBodySchema,
     @CurrentUser() user: UserPayload
   ) {
     const userId = user.sub
 
-    const { deviceId } = body
+    const { friendshipId } = body
 
-    const result = await this.revokeDevice.execute({
-      deviceId,
+    const result = await this.decline.execute({
+      friendshipId,
       userId,
     })
 

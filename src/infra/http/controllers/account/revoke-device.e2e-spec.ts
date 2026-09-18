@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
+import cookieParser from 'cookie-parser'
 import { faker } from '@faker-js/faker'
 import { AppModule } from '@/infra/app.module'
 import { PrismaService } from '@/infra/database/prisma/prisma.service'
@@ -16,6 +17,7 @@ describe('Revoke Device (e2e)', () => {
     }).compile()
 
     app = moduleRef.createNestApplication()
+    app.use(cookieParser())
     prisma = moduleRef.get(PrismaService)
 
     await app.init()
