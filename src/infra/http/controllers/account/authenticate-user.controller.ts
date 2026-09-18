@@ -2,23 +2,26 @@ import { Public } from '@/infra/auth/public'
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   HttpCode,
+  NotFoundException,
   Post,
+  Res,
   UnauthorizedException,
   UsePipes,
 } from '@nestjs/common'
+import { Response } from 'express'
 import z from 'zod'
-import { ZodValidationPipe } from '../../pipes/zod-validation-pipe'
+import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
 import { AuthenticateUserUseCase } from '@/domain/accounts/applications/use-cases/authenticate-user'
-import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
+import { EnvService } from '@/infra/env/env.service'
+import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { WrongCredentialsError } from '@/domain/accounts/applications/errors/wrong-credentials-error'
 
 const authenticateUserBodySchema = z.object({
   email: z.string().email(),
   password: z.string(),
-  deviceName: z.string(),
+  deviceName: z.string().nullable(),
 })
 
 type AuthenticateUserBodySchema = z.infer<typeof authenticateUserBodySchema>
@@ -26,12 +29,18 @@ type AuthenticateUserBodySchema = z.infer<typeof authenticateUserBodySchema>
 @Controller()
 @Public()
 export class AuthenticateUserController {
-  constructor(private authenticateUser: AuthenticateUserUseCase) {}
+  constructor(
+    private authenticateUser: AuthenticateUserUseCase,
+    private env: EnvService
+  ) {}
 
-  @Post('session')
+  @Post('/sessions')
   @HttpCode(200)
   @UsePipes(new ZodValidationPipe(authenticateUserBodySchema))
-  async handle(@Body() body: AuthenticateUserBodySchema) {
+  async handle(
+    @Body() body: AuthenticateUserBodySchema,
+    @Res({ passthrough: true }) response: Response
+  ) {
     const { deviceName, email, password } = body
 
     const result = await this.authenticateUser.execute({
@@ -44,8 +53,8 @@ export class AuthenticateUserController {
       const error = result.value
 
       switch (error.constructor) {
-        case ResourceAlreadyExistsError:
-          throw new ConflictException(error.message)
+        case ResourceNotFoundError:
+          throw new NotFoundException(error.message)
         case WrongCredentialsError:
           throw new UnauthorizedException(error.message)
         default:
@@ -55,8 +64,15 @@ export class AuthenticateUserController {
 
     const { accessToken, deviceId } = result.value
 
+    response.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: this.env.get('NODE_ENV') === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000,
+    })
+
     return {
-      access_token: accessToken,
       device_id: deviceId,
     }
   }

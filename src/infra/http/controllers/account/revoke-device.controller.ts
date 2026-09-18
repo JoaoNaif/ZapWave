@@ -1,15 +1,16 @@
-import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
+import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   HttpCode,
+  NotFoundException,
   Put,
   UnauthorizedException,
+  UsePipes,
 } from '@nestjs/common'
 import z from 'zod'
-import { ZodValidationPipe } from '../../pipes/zod-validation-pipe'
+import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
 import { RevokeDeviceUseCase } from '@/domain/accounts/applications/use-cases/revoke-device'
 import { CurrentUser } from '@/infra/auth/current-user-decorator'
 import { UserPayload } from '@/infra/auth/jwt-strategy'
@@ -19,8 +20,6 @@ const revokeDeviceBodySchema = z.object({
   deviceId: z.string().uuid(),
 })
 
-const bodyValidationPipe = new ZodValidationPipe(revokeDeviceBodySchema)
-
 type RevokeDeviceBodySchema = z.infer<typeof revokeDeviceBodySchema>
 
 @Controller()
@@ -29,8 +28,9 @@ export class RevokeDeviceController {
 
   @Put('/revoke-device')
   @HttpCode(204)
+  @UsePipes(new ZodValidationPipe(revokeDeviceBodySchema))
   async handle(
-    @Body(bodyValidationPipe) body: RevokeDeviceBodySchema,
+    @Body() body: RevokeDeviceBodySchema,
     @CurrentUser() user: UserPayload
   ) {
     const userId = user.sub
@@ -46,8 +46,8 @@ export class RevokeDeviceController {
       const error = result.value
 
       switch (error.constructor) {
-        case ResourceAlreadyExistsError:
-          throw new ConflictException(error.message)
+        case ResourceNotFoundError:
+          throw new NotFoundException(error.message)
         case NotAllowedError:
           throw new UnauthorizedException(error.message)
         default:

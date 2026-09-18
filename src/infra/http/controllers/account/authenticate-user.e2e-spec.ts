@@ -42,10 +42,10 @@ describe('Authenticate User (e2e)', () => {
     return { email, password }
   }
 
-  test('[POST] /session', async () => {
+  test('[POST] /sessions', async () => {
     const { email, password } = await registerUser()
 
-    const response = await request(app.getHttpServer()).post('/session').send({
+    const response = await request(app.getHttpServer()).post('/sessions').send({
       email,
       password,
       deviceName: 'Chrome no Windows',
@@ -53,9 +53,11 @@ describe('Authenticate User (e2e)', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.body).toEqual({
-      access_token: expect.any(String),
       device_id: expect.any(String),
     })
+    expect(response.headers['set-cookie']?.[0]).toEqual(
+      expect.stringContaining('access_token=')
+    )
 
     const deviceOnDatabase = await prisma.device.findUnique({
       where: { id: response.body.device_id },
@@ -66,10 +68,10 @@ describe('Authenticate User (e2e)', () => {
     expect(deviceOnDatabase?.revokedAt).toBeNull()
   })
 
-  test('[POST] /session with a wrong password fails', async () => {
+  test('[POST] /sessions with a wrong password fails', async () => {
     const { email } = await registerUser()
 
-    const response = await request(app.getHttpServer()).post('/session').send({
+    const response = await request(app.getHttpServer()).post('/sessions').send({
       email,
       password: 'wrong-password',
       deviceName: 'Chrome no Windows',
@@ -78,13 +80,13 @@ describe('Authenticate User (e2e)', () => {
     expect(response.statusCode).toBe(401)
   })
 
-  test('[POST] /session with an unknown email fails', async () => {
-    const response = await request(app.getHttpServer()).post('/session').send({
+  test('[POST] /sessions with an unknown email fails', async () => {
+    const response = await request(app.getHttpServer()).post('/sessions').send({
       email: faker.internet.email(),
       password: '123456',
       deviceName: 'Chrome no Windows',
     })
 
-    expect(response.statusCode).toBe(400)
+    expect(response.statusCode).toBe(404)
   })
 })

@@ -36,23 +36,22 @@ describe('Revoke Device (e2e)', () => {
       password,
     })
 
-    const authResponse = await request(app.getHttpServer())
-      .post('/session')
+    const agent = request.agent(app.getHttpServer())
+
+    const authResponse = await agent
+      .post('/sessions')
       .send({ email, password, deviceName: 'Chrome no Windows' })
 
     return {
-      accessToken: authResponse.body.access_token as string,
+      agent,
       deviceId: authResponse.body.device_id as string,
     }
   }
 
   test('[PUT] /revoke-device', async () => {
-    const { accessToken, deviceId } = await createSession()
+    const { agent, deviceId } = await createSession()
 
-    const response = await request(app.getHttpServer())
-      .put('/revoke-device')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ deviceId })
+    const response = await agent.put('/revoke-device').send({ deviceId })
 
     expect(response.statusCode).toBe(204)
 
@@ -64,17 +63,11 @@ describe('Revoke Device (e2e)', () => {
   })
 
   test('[PUT] /revoke-device is idempotent', async () => {
-    const { accessToken, deviceId } = await createSession()
+    const { agent, deviceId } = await createSession()
 
-    await request(app.getHttpServer())
-      .put('/revoke-device')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ deviceId })
+    await agent.put('/revoke-device').send({ deviceId })
 
-    const response = await request(app.getHttpServer())
-      .put('/revoke-device')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ deviceId })
+    const response = await agent.put('/revoke-device').send({ deviceId })
 
     expect(response.statusCode).toBe(204)
   })
@@ -93,9 +86,8 @@ describe('Revoke Device (e2e)', () => {
     const owner = await createSession()
     const attacker = await createSession()
 
-    const response = await request(app.getHttpServer())
+    const response = await attacker.agent
       .put('/revoke-device')
-      .set('Authorization', `Bearer ${attacker.accessToken}`)
       .send({ deviceId: owner.deviceId })
 
     expect(response.statusCode).toBe(401)
@@ -108,13 +100,12 @@ describe('Revoke Device (e2e)', () => {
   })
 
   test('[PUT] /revoke-device on an unknown device fails', async () => {
-    const { accessToken } = await createSession()
+    const { agent } = await createSession()
 
-    const response = await request(app.getHttpServer())
+    const response = await agent
       .put('/revoke-device')
-      .set('Authorization', `Bearer ${accessToken}`)
       .send({ deviceId: faker.string.uuid() })
 
-    expect(response.statusCode).toBe(400)
+    expect(response.statusCode).toBe(404)
   })
 })
