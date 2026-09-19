@@ -17,6 +17,16 @@ import { DeclineController } from './controllers/social/decline.controller'
 import { SendFriendInviteUseCase } from '@/domain/social/applications/use-cases/send-friend-invite'
 import { AcceptUseCase } from '@/domain/social/applications/use-cases/accept'
 import { DeclineUseCase } from '@/domain/social/applications/use-cases/decline'
+import { CreateRoomController } from './controllers/rooms/create-room.controller'
+import { CreateRoomUseCase } from '@/domain/rooms/applications/use-cases/create-room'
+import { InviteToRoomController } from './controllers/rooms/invite-to-room.controller'
+import { InviteToRoomUseCase } from '@/domain/rooms/applications/use-cases/invite-to-room'
+import { AcceptRoomInviteController } from './controllers/rooms/accept-room-invite.controller'
+import { AcceptRoomInviteUseCase } from '@/domain/rooms/applications/use-cases/accept-room-invite'
+import { LeaveRoomController } from './controllers/rooms/leave-room.controller'
+import { LeaveRoomUseCase } from '@/domain/rooms/applications/use-cases/leave-room'
+import { RemoveMemberUseCase } from '@/domain/rooms/applications/use-cases/remove-member'
+import { RemoveMemberController } from './controllers/rooms/remove-member.controller'
 
 @Module({
   imports: [DatabaseModule, CryptographyModule, EnvModule],
@@ -27,6 +37,11 @@ import { DeclineUseCase } from '@/domain/social/applications/use-cases/decline'
     SendFriendInviteController,
     AcceptController,
     DeclineController,
+    CreateRoomController,
+    InviteToRoomController,
+    AcceptRoomInviteController,
+    LeaveRoomController,
+    RemoveMemberController,
     HealthController,
   ],
   providers: [
@@ -36,6 +51,11 @@ import { DeclineUseCase } from '@/domain/social/applications/use-cases/decline'
     SendFriendInviteUseCase,
     AcceptUseCase,
     DeclineUseCase,
+    CreateRoomUseCase,
+    InviteToRoomUseCase,
+    AcceptRoomInviteUseCase,
+    LeaveRoomUseCase,
+    RemoveMemberUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
   ],
 })

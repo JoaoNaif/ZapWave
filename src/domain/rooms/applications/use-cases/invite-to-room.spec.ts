@@ -62,10 +62,12 @@ describe('Invite To Room', () => {
 
     if (result.isRight()) {
       expect(result.value.invite.status).toBe('pending')
-      expect(result.value.invite.inviteeId.toString()).toBe('user-2')
-      expect(result.value.invite.inviterId.toString()).toBe('owner-1')
-      expect(result.value.invite.conversationId).toEqual(room.id)
-      expect(result.value.room).toBe(room)
+      expect(result.value.invite.inviteeId).toBe('user-2')
+      expect(result.value.invite.inviterId).toBe('owner-1')
+      expect(result.value.invite.roomId).toBe(room.id.toString())
+      expect(result.value.room.id).toBe(room.id.toString())
+      expect(result.value.sender.userId).toBe('owner-1')
+      expect(result.value.sender.role).toBe('owner')
     }
   })
 
@@ -79,7 +81,7 @@ describe('Invite To Room', () => {
     })
 
     if (result.isRight()) {
-      expect(inMemoryRoomInviteRepository.items[0].id).toEqual(
+      expect(inMemoryRoomInviteRepository.items[0].id.toString()).toBe(
         result.value.invite.id
       )
     }

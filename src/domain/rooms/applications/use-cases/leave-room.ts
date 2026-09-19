@@ -3,6 +3,7 @@ import { ConversationRepository } from '@/domain/chat/applications/repositories/
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { Injectable } from '@nestjs/common'
 
 interface LeaveRoomReq {
   conversationId: string
@@ -11,6 +12,7 @@ interface LeaveRoomReq {
 
 type LeaveRoomRes = Either<ResourceNotFoundError | NotAllowedError, null>
 
+@Injectable()
 export class LeaveRoomUseCase {
   constructor(
     private conversationRepository: ConversationRepository,

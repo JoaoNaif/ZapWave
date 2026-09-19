@@ -4,17 +4,19 @@ import { Conversation } from '@/domain/chat/entities/conversation'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ConversationMember } from '@/domain/chat/entities/conversation-member'
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
+import { Injectable } from '@nestjs/common'
+import { RoomDto } from '../dtos/room-dto'
+import { RoomMemberDto } from '../dtos/room-member-dto'
+import { RoomMapper } from '../mappers/room-mapper'
 
 interface CreateRoomReq {
   name: string
   userId: string
 }
 
-type CreateRoomRes = Either<
-  never,
-  { room: Conversation; owner: ConversationMember }
->
+type CreateRoomRes = Either<never, { room: RoomDto; owner: RoomMemberDto }>
 
+@Injectable()
 export class CreateRoomUseCase {
   constructor(
     private conversationRepository: ConversationRepository,
@@ -43,6 +45,9 @@ export class CreateRoomUseCase {
 
     await this.conversationMemberRepository.create(conversationMember)
 
-    return right({ room: conversation, owner: conversationMember })
+    return right({
+      room: RoomMapper.toDto(conversation),
+      owner: RoomMapper.memberToDto(conversationMember),
+    })
   }
 }

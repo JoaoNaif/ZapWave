@@ -65,10 +65,11 @@ describe('Accept Room Invite', () => {
 
     if (result.isRight()) {
       expect(result.value.member.role).toBe('member')
-      expect(result.value.member.userId.toString()).toBe('user-2')
-      expect(result.value.member.conversationId).toEqual(room.id)
+      expect(result.value.member.userId).toBe('user-2')
+      expect(result.value.member.roomId).toBe(room.id.toString())
       expect(result.value.member.lastReadMessageId).toBeNull()
-      expect(result.value.room).toBe(room)
+      expect(result.value.room.id).toBe(room.id.toString())
+      expect(result.value.invite.id).toBe('invite-1')
       expect(result.value.invite.status).toBe('accepted')
       expect(result.value.invite.respondedAt).toBeInstanceOf(Date)
     }

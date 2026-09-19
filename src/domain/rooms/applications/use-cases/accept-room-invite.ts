@@ -1,14 +1,17 @@
 import { Either, left, right } from '@/core/either'
 import { ConversationRepository } from '@/domain/chat/applications/repositories/conversation-repository'
-import { Conversation } from '@/domain/chat/entities/conversation'
 import { ConversationMember } from '@/domain/chat/entities/conversation-member'
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
 import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
-import { RoomInvite } from '../../entities/room-invite'
 import { RoomInviteRepository } from '../repositories/room-invite-repository'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
+import { Injectable } from '@nestjs/common'
+import { RoomDto } from '../dtos/room-dto'
+import { RoomMemberDto } from '../dtos/room-member-dto'
+import { RoomInviteDto } from '../dtos/room-invite-dto'
+import { RoomMapper } from '../mappers/room-mapper'
 
 interface AcceptRoomInviteReq {
   inviteId: string
@@ -17,9 +20,10 @@ interface AcceptRoomInviteReq {
 
 type AcceptRoomInviteRes = Either<
   ResourceNotFoundError | NotAllowedError | ResourceAlreadyExistsError,
-  { invite: RoomInvite; room: Conversation; member: ConversationMember }
+  { invite: RoomInviteDto; room: RoomDto; member: RoomMemberDto }
 >
 
+@Injectable()
 export class AcceptRoomInviteUseCase {
   constructor(
     private conversationRepository: ConversationRepository,
@@ -72,6 +76,10 @@ export class AcceptRoomInviteUseCase {
     // PrismaRoomInviteRepository existir.
     await this.roomInviteRepository.save(invite)
 
-    return right({ invite, room: conversation, member })
+    return right({
+      invite: RoomMapper.inviteToDto(invite),
+      room: RoomMapper.toDto(conversation),
+      member: RoomMapper.memberToDto(member),
+    })
   }
 }

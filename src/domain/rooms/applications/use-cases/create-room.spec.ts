@@ -33,7 +33,7 @@ describe('Create Room', () => {
     if (result.isRight()) {
       expect(result.value.room.type).toBe('room')
       expect(result.value.room.name).toBe('team-zapwave')
-      expect(result.value.room.createdById.toString()).toBe('user-1')
+      expect(result.value.room.createdById).toBe('user-1')
     }
   })
 
@@ -44,7 +44,7 @@ describe('Create Room', () => {
     })
 
     if (result.isRight()) {
-      expect(inMemoryConversationRepository.items[0].id).toEqual(
+      expect(inMemoryConversationRepository.items[0].id.toString()).toBe(
         result.value.room.id
       )
     }
@@ -63,8 +63,14 @@ describe('Create Room', () => {
     expect(owner.lastReadMessageId).toBeNull()
 
     if (result.isRight()) {
-      expect(owner.conversationId).toEqual(result.value.room.id)
-      expect(result.value.owner).toBe(owner)
+      expect(result.value.owner).toEqual({
+        id: owner.id.toString(),
+        roomId: result.value.room.id,
+        userId: 'user-1',
+        role: 'owner',
+        joinedAt: owner.joinedAt,
+        lastReadMessageId: null,
+      })
     }
   })
 })

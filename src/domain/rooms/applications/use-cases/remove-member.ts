@@ -3,6 +3,7 @@ import { ConversationRepository } from '@/domain/chat/applications/repositories/
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { Injectable } from '@nestjs/common'
 
 interface RemoveMemberReq {
   conversationId: string
@@ -12,6 +13,7 @@ interface RemoveMemberReq {
 
 type RemoveMemberRes = Either<ResourceNotFoundError | NotAllowedError, null>
 
+@Injectable()
 export class RemoveMemberUseCase {
   constructor(
     private conversationRepository: ConversationRepository,
