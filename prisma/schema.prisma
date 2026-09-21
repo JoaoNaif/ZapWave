@@ -97,7 +97,7 @@ model ConversationMember {
   joinedAt          DateTime               @default(now()) @map("joined_at")
   lastReadMessageId String?                @map("last_read_message_id")
 
-  lastReadMessage Message? @relation(fields: [lastReadMessageId], references: [id], onDelete: Cascade)
+  lastReadMessage Message? @relation(fields: [lastReadMessageId], references: [id], onDelete: SetNull)
 
   @@unique([conversationId, userId])
   @@map("conversations_members")
@@ -116,6 +116,10 @@ model Message {
   devices             Device[]
   conversationMembers ConversationMember[]
 
+  // idempotência do envio: reenviar o mesmo clientMessageId (retry) não cria
+  // outra mensagem. NULLs são distintos no Postgres, então mensagens sem
+  // clientMessageId não conflitam entre si.
+  @@unique([conversationId, senderId, clientMessageId])
   @@map("messages")
 }
 
@@ -129,7 +133,7 @@ model Device {
   revokedAt      DateTime? @map("revoked_at")
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resumeCursor Message? @relation(fields: [resumeCursorId], references: [id], onDelete: Cascade)
+  resumeCursor Message? @relation(fields: [resumeCursorId], references: [id], onDelete: SetNull)
 
   @@map("devices")
 }

@@ -14,6 +14,21 @@ export class InMemoryMessageRepository implements MessageRepository {
     return message
   }
 
+  async findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string
+  ): Promise<Message | null> {
+    const message = this.items.find(
+      (item) =>
+        item.conversationId.toString() === conversationId &&
+        item.senderId.toString() === senderId &&
+        item.clientMessageId?.toString() === clientMessageId
+    )
+
+    return message ?? null
+  }
+
   async findManyByConversationId(
     conversationId: string,
     { before, limit }: { before?: string; limit: number }

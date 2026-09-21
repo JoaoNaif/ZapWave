@@ -2,6 +2,12 @@ import { Message } from '../../entities/message'
 
 export abstract class MessageRepository {
   abstract findById(id: string): Promise<Message | null>
+  abstract findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string
+  ): Promise<Message | null>
+
   abstract findManyByConversationId(
     conversationId: string,
     params: { before?: string; limit: number }

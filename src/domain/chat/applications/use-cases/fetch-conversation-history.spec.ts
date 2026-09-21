@@ -79,7 +79,7 @@ describe('Fetch Conversation History', () => {
       expect(result.value.messages).toHaveLength(5)
       expect(result.value.hasMore).toBe(true)
       // mais recente (msg-6) primeiro
-      expect(result.value.messages.map((m) => m.id.toString())).toEqual([
+      expect(result.value.messages.map((m) => m.id)).toEqual([
         'msg-6',
         'msg-5',
         'msg-4',
@@ -152,13 +152,13 @@ describe('Fetch Conversation History', () => {
       userId: 'user-1',
       conversationId: 'conversation-1',
       limit: 5,
-      before: oldestOfFirstPage.id.toString(),
+      before: oldestOfFirstPage.id,
     })
 
     expect(secondPage.isRight()).toBe(true)
     if (secondPage.isRight()) {
       expect(secondPage.value.messages).toHaveLength(1)
-      expect(secondPage.value.messages[0].id.toString()).toBe('msg-1')
+      expect(secondPage.value.messages[0].id).toBe('msg-1')
       expect(secondPage.value.hasMore).toBe(false)
     }
   })

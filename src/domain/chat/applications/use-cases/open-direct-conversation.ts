@@ -8,6 +8,10 @@ import { FriendshipNotAcceptedError } from '../errors/friendship-not-accepted-er
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
 import { ConversationRepository } from '../repositories/conversation-repository'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
+import { Injectable } from '@nestjs/common'
+import { ConversationDto } from '../dtos/conversation-dto'
+import { ConversationMemberDto } from '../dtos/conversation-member-dto'
+import { ConversationMapper } from '../mappers/conversation-mapper'
 
 interface OpenDirectConversationReq {
   userId: string
@@ -17,12 +21,13 @@ interface OpenDirectConversationReq {
 type OpenDirectConversationRes = Either<
   ResourceNotFoundError | FriendshipNotAcceptedError | NotAllowedError,
   {
-    conversation: Conversation
-    member: ConversationMember
+    conversation: ConversationDto
+    member: ConversationMemberDto
     isNewConversation: boolean
   }
 >
 
+@Injectable()
 export class OpenDirectConversationUseCase {
   constructor(
     private friendshipRepository: FriendshipRepository,
@@ -81,8 +86,8 @@ export class OpenDirectConversationUseCase {
 
     if (dmConversation && existingMembership) {
       return right({
-        conversation: dmConversation,
-        member: existingMembership,
+        conversation: ConversationMapper.toDto(dmConversation),
+        member: ConversationMapper.memberToDto(existingMembership),
         isNewConversation: false,
       })
     }
@@ -124,8 +129,8 @@ export class OpenDirectConversationUseCase {
     await this.conversationMemberRepository.create(friendMembership)
 
     return right({
-      conversation: newConversation,
-      member: userMembership,
+      conversation: ConversationMapper.toDto(newConversation),
+      member: ConversationMapper.memberToDto(userMembership),
       isNewConversation: true,
     })
   }

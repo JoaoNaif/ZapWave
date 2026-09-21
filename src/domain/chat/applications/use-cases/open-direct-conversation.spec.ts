@@ -52,7 +52,7 @@ describe('Open Direct Conversation', () => {
     if (result.isRight()) {
       expect(result.value.conversation.type).toBe('dm')
       expect(result.value.isNewConversation).toBe(true)
-      expect(result.value.member.userId.toString()).toBe('user-1')
+      expect(result.value.member.userId).toBe('user-1')
     }
   })
 
@@ -112,7 +112,8 @@ describe('Open Direct Conversation', () => {
     expect(inMemoryConversationMemberRepository.items).toHaveLength(2)
 
     if (result.isRight()) {
-      expect(result.value.conversation.id.toString()).toBe('conversation-1')
+      expect(result.value.conversation.id).toBe('conversation-1')
+      expect(result.value.member.conversationId).toBe('conversation-1')
       expect(result.value.isNewConversation).toBe(false)
     }
   })
@@ -170,7 +171,7 @@ describe('Open Direct Conversation', () => {
     expect(inMemoryConversationRepository.items).toHaveLength(2)
 
     if (result.isRight()) {
-      expect(result.value.conversation.id.toString()).toBe('dm-1')
+      expect(result.value.conversation.id).toBe('dm-1')
       expect(result.value.conversation.type).toBe('dm')
     }
   })

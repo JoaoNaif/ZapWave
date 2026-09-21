@@ -46,11 +46,11 @@ describe('Send Message', () => {
 
     if (result.isRight()) {
       expect(result.value.message.body).toBe('oi, tudo bem?')
-      expect(result.value.message.senderId.toString()).toBe('user-1')
-      expect(result.value.message.conversationId.toString()).toBe(
-        'conversation-1'
+      expect(result.value.message.senderId).toBe('user-1')
+      expect(result.value.message.conversationId).toBe('conversation-1')
+      expect(inMemoryMessageRepository.items[0].id.toString()).toBe(
+        result.value.message.id
       )
-      expect(inMemoryMessageRepository.items[0]).toBe(result.value.message)
     }
   })
 
@@ -76,7 +76,10 @@ describe('Send Message', () => {
 
     if (result.isRight()) {
       expect(inMemoryMessageStream.published[0].message).toBe(
-        result.value.message
+        inMemoryMessageRepository.items[0]
+      )
+      expect(inMemoryMessageStream.published[0].message.id.toString()).toBe(
+        result.value.message.id
       )
     }
   })
@@ -118,10 +121,91 @@ describe('Send Message', () => {
 
     expect(result.isRight()).toBe(true)
     if (result.isRight()) {
-      expect(result.value.message.clientMessageId?.toString()).toBe(
-        'client-generated-id-1'
+      expect(result.value.message.clientMessageId).toBe('client-generated-id-1')
+    }
+  })
+
+  it('should not duplicate the message when the same clientMessageId is sent again', async () => {
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        userId: new UniqueEntityId('user-1'),
+        conversationId: new UniqueEntityId('conversation-1'),
+      })
+    )
+
+    const first = await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+      clientMessageId: 'client-generated-id-1',
+    })
+
+    const retry = await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+      clientMessageId: 'client-generated-id-1',
+    })
+
+    expect(first.isRight()).toBe(true)
+    expect(retry.isRight()).toBe(true)
+    expect(inMemoryMessageRepository.items).toHaveLength(1)
+    // não republica no stream
+    expect(inMemoryMessageStream.published).toHaveLength(1)
+
+    if (first.isRight() && retry.isRight()) {
+      expect(retry.value.message).toEqual(first.value.message)
+    }
+  })
+
+  it('should not treat the same clientMessageId from another sender as a duplicate', async () => {
+    for (const userId of ['user-1', 'user-2']) {
+      await inMemoryConversationMemberRepository.create(
+        makeConversationMember({
+          userId: new UniqueEntityId(userId),
+          conversationId: new UniqueEntityId('conversation-1'),
+        })
       )
     }
+
+    await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+      clientMessageId: 'client-generated-id-1',
+    })
+
+    const result = await sut.execute({
+      senderId: 'user-2',
+      conversationId: 'conversation-1',
+      body: 'oi',
+      clientMessageId: 'client-generated-id-1',
+    })
+
+    expect(result.isRight()).toBe(true)
+    expect(inMemoryMessageRepository.items).toHaveLength(2)
+  })
+
+  it('should always create a new message when there is no clientMessageId', async () => {
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        userId: new UniqueEntityId('user-1'),
+        conversationId: new UniqueEntityId('conversation-1'),
+      })
+    )
+
+    await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+    })
+    await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+    })
+
+    expect(inMemoryMessageRepository.items).toHaveLength(2)
   })
 
   it('should not be able to send a message to a conversation the sender is not a member of', async () => {

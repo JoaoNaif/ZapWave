@@ -1,8 +1,10 @@
 import { Either, left, right } from '@/core/either'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
-import { Message } from '../../entities/message'
+import { Injectable } from '@nestjs/common'
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
 import { MessageRepository } from '../repositories/message-repository'
+import { MessageDto } from '../dtos/message-dto'
+import { MessageMapper } from '../mappers/message-mapper'
 
 interface FetchConversationHistoryReq {
   userId: string
@@ -14,11 +16,12 @@ interface FetchConversationHistoryReq {
 type FetchConversationHistoryRes = Either<
   ResourceNotFoundError,
   {
-    messages: Message[]
+    messages: MessageDto[]
     hasMore: boolean
   }
 >
 
+@Injectable()
 export class FetchConversationHistoryUseCase {
   constructor(
     private conversationMemberRepository: ConversationMemberRepository,
@@ -52,7 +55,9 @@ export class FetchConversationHistoryUseCase {
     const hasMore = messages.length > limit
 
     return right({
-      messages: hasMore ? messages.slice(0, limit) : messages,
+      messages: (hasMore ? messages.slice(0, limit) : messages).map(
+        MessageMapper.toDto
+      ),
       hasMore,
     })
   }

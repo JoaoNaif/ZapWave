@@ -20,6 +20,28 @@ export class PrismaMessageRepository implements MessageRepository {
     return PrismaMessageMapper.toDomain(message)
   }
 
+  async findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string
+  ): Promise<Message | null> {
+    const message = await this.prisma.message.findUnique({
+      where: {
+        conversationId_senderId_clientMessageId: {
+          conversationId,
+          senderId,
+          clientMessageId,
+        },
+      },
+    })
+
+    if (!message) {
+      return null
+    }
+
+    return PrismaMessageMapper.toDomain(message)
+  }
+
   async findManyByConversationId(
     conversationId: string,
     { before, limit }: { before?: string; limit: number }

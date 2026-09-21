@@ -2,6 +2,7 @@ import { Either, left, right } from '@/core/either'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
+import { Injectable } from '@nestjs/common'
 
 interface MarkConversationReadReq {
   userId: string
@@ -11,6 +12,7 @@ interface MarkConversationReadReq {
 
 type MarkConversationReadRes = Either<ResourceNotFoundError, { read: boolean }>
 
+@Injectable()
 export class MarkConversationReadUseCase {
   constructor(
     private conversationMemberRepository: ConversationMemberRepository

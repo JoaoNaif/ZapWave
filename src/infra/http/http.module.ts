@@ -27,6 +27,18 @@ import { LeaveRoomController } from './controllers/rooms/leave-room.controller'
 import { LeaveRoomUseCase } from '@/domain/rooms/applications/use-cases/leave-room'
 import { RemoveMemberUseCase } from '@/domain/rooms/applications/use-cases/remove-member'
 import { RemoveMemberController } from './controllers/rooms/remove-member.controller'
+import { FetchConversationHistoryController } from './controllers/chat/fetch-conversation-history.controller'
+import { FetchConversationHistoryUseCase } from '@/domain/chat/applications/use-cases/fetch-conversation-history'
+import { MarkConversationReadController } from './controllers/chat/mark-conversation-read.controller'
+import { MarkConversationReadUseCase } from '@/domain/chat/applications/use-cases/mark-conversation-read'
+import { OpenDirectConversationController } from './controllers/chat/open-direct-conversation.controller'
+import { OpenDirectConversationUseCase } from '@/domain/chat/applications/use-cases/open-direct-conversation'
+import { SendMessageController } from './controllers/chat/send-message.controller'
+import { SendMessageUseCase } from '@/domain/chat/applications/use-cases/send-message'
+import { AckMessageDeliveryController } from './controllers/chat/ack-message-delivery.controller'
+import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
+import { MessageStream } from '@/domain/chat/applications/gateways/message-stream'
+import { NoopMessageStream } from '../gateways/noop-message-stream'
 
 @Module({
   imports: [DatabaseModule, CryptographyModule, EnvModule],
@@ -42,6 +54,11 @@ import { RemoveMemberController } from './controllers/rooms/remove-member.contro
     AcceptRoomInviteController,
     LeaveRoomController,
     RemoveMemberController,
+    FetchConversationHistoryController,
+    MarkConversationReadController,
+    OpenDirectConversationController,
+    SendMessageController,
+    AckMessageDeliveryController,
     HealthController,
   ],
   providers: [
@@ -56,7 +73,13 @@ import { RemoveMemberController } from './controllers/rooms/remove-member.contro
     AcceptRoomInviteUseCase,
     LeaveRoomUseCase,
     RemoveMemberUseCase,
+    FetchConversationHistoryUseCase,
+    MarkConversationReadUseCase,
+    OpenDirectConversationUseCase,
+    SendMessageUseCase,
+    AckMessageDeliveryUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
+    { provide: MessageStream, useClass: NoopMessageStream },
   ],
 })
 export class HttpModule {}
