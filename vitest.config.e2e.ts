@@ -8,6 +8,11 @@ export default defineConfig({
     root: './',
     include: ['src/**/*.e2e-spec.ts'],
     setupFiles: ['./test/setup-e2e.ts'],
+    // cada arquivo cria um schema + roda migrations + sobe o Nest; com todos em
+    // paralelo o Postgres/CPU saturam e o beforeAll estoura o timeout
+    maxWorkers: 4,
+    hookTimeout: 60_000,
+    testTimeout: 30_000,
   },
   plugins: [
     tsConfigPaths(),

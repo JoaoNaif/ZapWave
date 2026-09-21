@@ -1,31 +1,52 @@
 import { randomUUID } from 'node:crypto'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { config } from 'dotenv'
 import { PrismaClient } from '@prisma/client'
 import { afterAll, beforeAll } from 'vitest'
 
 config({ path: '.env', override: false })
 
-const prisma = new PrismaClient()
 const schemaId = randomUUID()
 
-function buildDatabaseURL(schema: string) {
+// Pool pequeno por arquivo: o padrão do Prisma é (CPUs * 2 + 1) conexões, e
+// vários arquivos de teste rodam ao mesmo tempo contra o mesmo Postgres.
+const CONNECTION_LIMIT = '5'
+
+function buildDatabaseURL(schema?: string) {
   if (!process.env.DATABASE_URL) {
     throw new Error('Defina a variável de ambiente DATABASE_URL.')
   }
 
   const url = new URL(process.env.DATABASE_URL)
-  url.searchParams.set('schema', schema)
+  if (schema) url.searchParams.set('schema', schema)
+  url.searchParams.set('connection_limit', CONNECTION_LIMIT)
   return url.toString()
 }
 
+// Cliente só para criar/dropar o schema do arquivo; uma conexão basta.
+const adminPrisma = new PrismaClient({
+  datasourceUrl: buildDatabaseURL().replace(
+    `connection_limit=${CONNECTION_LIMIT}`,
+    'connection_limit=1'
+  ),
+})
+
 beforeAll(async () => {
   process.env.DATABASE_URL = buildDatabaseURL(schemaId)
-  // no-op enquanto não houver migrations; roda-as quando existirem.
-  execSync('npx prisma migrate deploy', { stdio: 'ignore' })
+
+  // node direto no CLI do Prisma (sem npx, que adiciona segundos por arquivo);
+  // timeout finito e stderr visível para a falha não virar um "hook timed out"
+  execFileSync(
+    process.execPath,
+    [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy'],
+    { stdio: 'pipe', timeout: 50_000 }
+  )
 })
 
 afterAll(async () => {
-  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaId}" CASCADE`)
-  await prisma.$disconnect()
+  await adminPrisma.$executeRawUnsafe(
+    `DROP SCHEMA IF EXISTS "${schemaId}" CASCADE`
+  )
+  await adminPrisma.$disconnect()
 })
