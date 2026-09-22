@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { EnvService } from '../env/env.service'
 import { Request } from 'express'
 
-const tokenPayloadSchema = z.object({
+export const tokenPayloadSchema = z.object({
   sub: z.string().uuid(),
 })
 

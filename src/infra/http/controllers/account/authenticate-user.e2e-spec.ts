@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
+import { WsAdapter } from '@nestjs/platform-ws'
 import request from 'supertest'
 import { faker } from '@faker-js/faker'
 import { AppModule } from '@/infra/app.module'
@@ -16,6 +17,7 @@ describe('Authenticate User (e2e)', () => {
     }).compile()
 
     app = moduleRef.createNestApplication()
+    app.useWebSocketAdapter(new WsAdapter(app))
     prisma = moduleRef.get(PrismaService)
 
     await app.init()

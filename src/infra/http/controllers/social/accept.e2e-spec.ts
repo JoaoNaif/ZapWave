@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
+import { WsAdapter } from '@nestjs/platform-ws'
 import request from 'supertest'
 import cookieParser from 'cookie-parser'
 import { faker } from '@faker-js/faker'
@@ -17,6 +18,7 @@ describe('Accept Friend Invite (e2e)', () => {
     }).compile()
 
     app = moduleRef.createNestApplication()
+    app.useWebSocketAdapter(new WsAdapter(app))
     app.use(cookieParser())
     prisma = moduleRef.get(PrismaService)
 

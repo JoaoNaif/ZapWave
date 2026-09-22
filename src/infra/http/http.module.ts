@@ -38,8 +38,6 @@ import { SendMessageController } from './controllers/chat/send-message.controlle
 import { SendMessageUseCase } from '@/domain/chat/applications/use-cases/send-message'
 import { AckMessageDeliveryController } from './controllers/chat/ack-message-delivery.controller'
 import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
-import { MessageStream } from '@/domain/chat/applications/gateways/message-stream'
-import { RedisMessageStream } from '../redis/redis-message-stream'
 
 @Module({
   imports: [DatabaseModule, RedisModule, CryptographyModule, EnvModule],
@@ -80,7 +78,6 @@ import { RedisMessageStream } from '../redis/redis-message-stream'
     SendMessageUseCase,
     AckMessageDeliveryUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
-    { provide: MessageStream, useClass: RedisMessageStream },
   ],
 })
 export class HttpModule {}

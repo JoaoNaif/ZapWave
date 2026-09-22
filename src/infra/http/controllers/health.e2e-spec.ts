@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
+import { WsAdapter } from '@nestjs/platform-ws'
 import request from 'supertest'
 import { AppModule } from '@/infra/app.module'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
@@ -13,6 +14,7 @@ describe('Health (e2e)', () => {
     }).compile()
 
     app = moduleRef.createNestApplication()
+    app.useWebSocketAdapter(new WsAdapter(app))
     await app.init()
   })
 
