@@ -107,9 +107,43 @@ fechada (`quit()`) no `finally` do generator — dispara quando o consumidor par
 gancho que depois liga o "parar de ler no Redis quando o socket cai" do
 `05-websocket.md`.
 
-## 7. O que fica para depois (`07-fases.md`)
+## 7. `XAUTOCLAIM`: por que não é bem "recuperação de crash"
 
-- `XCLAIM`/`XAUTOCLAIM`: reclamar mensagens de um consumer que caiu sem confirmar (hoje
-  não existe recuperação de crash no meio do PEL de um device).
-- Presença/heartbeat (`RedisPresence`) — gateway separado, não faz parte deste doc.
+Primeira surpresa, testando contra o Redis de verdade: **reconectar já recupera o PEL
+sozinho**, sem precisar de `XCLAIM` nenhum. O PEL é indexado por `(group, consumer)`, não
+por conexão TCP nem processo — e como `CONSUMER_NAME` é uma string fixa (`"device"`) por
+premissa (§1), qualquer processo que receba a reconexão daquele device lê `'0'` e recebe de
+volta exatamente o que ficou pendente, não importa se foi *este* processo que caiu ou
+outro. Confirmado escrevendo um teste que entrega uma mensagem, mata a conexão, abre uma
+**conexão nova e sem estado nenhum** com o mesmo `CONSUMER_NAME`, e lê `'0'` — ela volta.
+
+O bug de verdade é outro, e mais sério: **`MAXLEN` do `publish()` pode remover da stream
+uma entrada que ainda está pendente no PEL de algum device**. `XPENDING` continua listando
+o id — mas o dado já foi embora. Um `XREADGROUP ... STREAMS key 0` nessa entrada "fantasma"
+devolve `[id, null]` (fields `null`, não um array vazio) — e o `RedisMessageMapper` não
+esperava isso: qualquer device que ficasse offline tempo suficiente pra sua mensagem mais
+antiga ser trimada, ao reconectar, **derrubava o `replayFrom` inteiro**. Confirmado com o
+mesmo tipo de teste: `XADD` pequeno, `MAXLEN` agressivo, `XREADGROUP id 0` — o `null` chega.
+
+`XAUTOCLAIM key group consumer min-idle-time start` resolve os dois problemas de uma vez,
+e por isso substituiu o read `'0'` inteiro em `replayFrom`:
+
+- Devolve `[cursor, claimedEntries, deletedIds]`. `claimedEntries` tem o mesmo formato
+  `[id, fields]` do `XREADGROUP` — mesmo dado que o `'0'` antigo dava.
+- **Qualquer entrada fantasma some sozinha da resposta e do PEL** — vai para `deletedIds`,
+  não para `claimedEntries`. Sem `null`, sem `if` defensivo, sem `XACK` manual: o comando já
+  faz a limpeza.
+- `min-idle-time 0`: não existe outro consumer disputando posse (premissa do §1), então
+  reclamar de si mesmo é inofensivo — só reseta o relógio de idle daquela entrada.
+
+Trade-off que continua aberto: se um device **nunca** reconectar, sua mensagem mais antiga
+ainda pode ser trimada antes de ser confirmada — só que agora, quando ele finalmente voltar
+(daqui a uma hora ou um ano), `replayFrom` não quebra por causa disso; simplesmente não traz
+de volta o que já não existe mais no Redis (o cliente busca esse trecho via
+`GET /conversation-history`, como já valia desde o §5).
+
+## 8. O que fica para depois (`07-fases.md`)
+
 - Multi-tab (mais de um consumer por device) — hoje assume-se 1 conexão ativa por device.
+- Sweep periódico e independente de reconexão, pra devices que nunca voltam (hoje a limpeza
+  só acontece quando o próprio device reconecta e chama `replayFrom`).

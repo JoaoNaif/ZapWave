@@ -116,22 +116,25 @@ export class RedisMessageStream implements MessageStream {
     try {
       await ensureGroup(connection, key)
 
-      // id '0' só devolve o que já esteve em '>' antes (PEL de uma sessão
-      // anterior que caiu sem confirmar) — NÃO inclui mensagens novas nunca
-      // lidas. Por isso replay é dois reads sem bloqueio, nesta ordem, sem
-      // sobreposição: '0' drena o PEL antigo, depois '>' pega o que nunca
-      // foi entregue (e, ao ler, passa a fazer parte do PEL a partir de
-      // agora). Ver docs/06-redis-streams.md §3.
-      const pending = await connection.xreadgroup(
-        'GROUP',
+      // XAUTOCLAIM (não XREADGROUP id '0'): reclama pra si mesmo tudo que já
+      // está pendente neste consumer — de uma sessão anterior que caiu sem
+      // confirmar — e, de brinde, dá baixa sozinho em qualquer entrada
+      // "fantasma": uma que o MAXLEN do publish() já removeu da stream mas
+      // que ainda constava como pendente. Sem isso, essa entrada fantasma
+      // volta com fields=null e derruba o mapper. minIdleTime 0 porque não
+      // existe outro consumer pra disputar posse — reclamar de si mesmo é
+      // inofensivo, só reseta o relógio de idle. Ver docs/06 §3 e §7.
+      const claimed = await connection.xautoclaim(
+        key,
         CONSUMER_GROUP,
         CONSUMER_NAME,
+        0,
+        '0-0',
         'COUNT',
-        1000,
-        'STREAMS',
-        key,
-        '0'
+        1000
       )
+      const [, pendingEntries] = claimed as [string, [string, string[]][], string[]]
+
       const fresh = await connection.xreadgroup(
         'GROUP',
         CONSUMER_GROUP,
@@ -142,20 +145,17 @@ export class RedisMessageStream implements MessageStream {
         key,
         '>'
       )
+      const freshEntries = fresh
+        ? (fresh as [string, [string, string[]][]][])[0][1]
+        : []
 
-      for (const result of [pending, fresh]) {
-        if (!result) continue
+      for (const [, fields] of [...pendingEntries, ...freshEntries]) {
+        const messageId = RedisMessageMapper.messageIdOf(fields)
 
-        const [[, entries]] = result as [string, [string, string[]][]][]
+        // defensivo: filtra de novo mesmo lendo do PEL (ver docs/06 §3)
+        if (afterMessageId !== null && messageId <= afterMessageId) continue
 
-        for (const [, fields] of entries) {
-          const messageId = RedisMessageMapper.messageIdOf(fields)
-
-          // defensivo: filtra de novo mesmo lendo do PEL (ver docs/06 §3)
-          if (afterMessageId !== null && messageId <= afterMessageId) continue
-
-          yield RedisMessageMapper.fieldsToMessage(fields)
-        }
+        yield RedisMessageMapper.fieldsToMessage(fields)
       }
     } finally {
       connection.disconnect()

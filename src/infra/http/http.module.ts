@@ -42,6 +42,8 @@ import { FetchNotificationsController } from './controllers/notifications/fetch-
 import { FetchNotificationsUseCase } from '@/domain/notification/applications/use-cases/fetch-notification'
 import { ReadNotificationController } from './controllers/notifications/read-notification.controller'
 import { ReadNotificationUseCase } from '@/domain/notification/applications/use-cases/read-notification'
+import { FetchPresenceController } from './controllers/chat/fetch-presence.controller'
+import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch-presence'
 
 @Module({
   imports: [DatabaseModule, RedisModule, CryptographyModule, EnvModule],
@@ -64,6 +66,7 @@ import { ReadNotificationUseCase } from '@/domain/notification/applications/use-
     AckMessageDeliveryController,
     FetchNotificationsController,
     ReadNotificationController,
+    FetchPresenceController,
     HealthController,
   ],
   providers: [
@@ -85,6 +88,7 @@ import { ReadNotificationUseCase } from '@/domain/notification/applications/use-
     AckMessageDeliveryUseCase,
     FetchNotificationsUseCase,
     ReadNotificationUseCase,
+    FetchPresenceUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
   ],
 })

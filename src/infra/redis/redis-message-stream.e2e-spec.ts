@@ -145,6 +145,48 @@ describe('Redis Message Stream (e2e)', () => {
 
       expect(await collect(sut.replayFrom(deviceId, null))).toEqual(['msg-1'])
     })
+
+    test('recovers from a pending entry the publish() MAXLEN already trimmed from the stream', async () => {
+      // regressão do XAUTOCLAIM (docs/06-redis-streams.md §7): antes disso, uma
+      // entrada pendente cujo dado o MAXLEN já removeu da stream vinha como
+      // [id, null] no read '0' e derrubava o mapper inteiro
+      const deviceId = uniqueDeviceId()
+      const conversationId = randomUUID()
+      const key = `chat:inbox:${deviceId}`
+
+      await sut.publish(
+        conversationId,
+        makeMessageWithId(conversationId, 'msg-ghost'),
+        [deviceId]
+      )
+      // entrega msg-ghost pro PEL (via '>'), sem confirmar
+      await collect(sut.replayFrom(deviceId, null))
+
+      // simula o device ficando offline tempo suficiente pro publish() ir
+      // trimando a stream por baixo — usa a mesma chave interna do adapter,
+      // com um MAXLEN agressivo só pra forçar o cenário neste teste
+      for (let i = 0; i < 3; i++) {
+        await redis.xadd(
+          key,
+          'MAXLEN',
+          '1',
+          '*',
+          'messageId',
+          `filler-${i}`,
+          'body',
+          'x'
+        )
+      }
+
+      await expect(collect(sut.replayFrom(deviceId, null))).resolves.toEqual([
+        'filler-2',
+      ])
+
+      // msg-ghost saiu do PEL sozinho (via XAUTOCLAIM); só sobra o que essa
+      // mesma chamada acabou de entregar por '>' (filler-2)
+      const pending = await redis.xpending(key, 'delivery')
+      expect(pending[0]).toBe(1)
+    })
   })
 
   describe('ack', () => {
