@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { DatabaseModule } from '../database/database.module'
+import { RedisModule } from '../redis/redis.module'
 import { CryptographyModule } from '../cryptography/cryptography.module'
 import { EnvModule } from '../env/env.module'
 import { AuthenticateUserController } from './controllers/account/authenticate-user.controller'
@@ -38,10 +39,10 @@ import { SendMessageUseCase } from '@/domain/chat/applications/use-cases/send-me
 import { AckMessageDeliveryController } from './controllers/chat/ack-message-delivery.controller'
 import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
 import { MessageStream } from '@/domain/chat/applications/gateways/message-stream'
-import { NoopMessageStream } from '../gateways/noop-message-stream'
+import { RedisMessageStream } from '../redis/redis-message-stream'
 
 @Module({
-  imports: [DatabaseModule, CryptographyModule, EnvModule],
+  imports: [DatabaseModule, RedisModule, CryptographyModule, EnvModule],
   controllers: [
     AuthenticateUserController,
     RegisterUserController,
@@ -79,7 +80,7 @@ import { NoopMessageStream } from '../gateways/noop-message-stream'
     SendMessageUseCase,
     AckMessageDeliveryUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
-    { provide: MessageStream, useClass: NoopMessageStream },
+    { provide: MessageStream, useClass: RedisMessageStream },
   ],
 })
 export class HttpModule {}
