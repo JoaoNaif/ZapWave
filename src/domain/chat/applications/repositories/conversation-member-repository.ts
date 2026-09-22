@@ -3,6 +3,9 @@ import { ConversationMember } from '../../entities/conversation-member'
 export abstract class ConversationMemberRepository {
   abstract findById(id: string): Promise<ConversationMember | null>
   abstract findManyByUserId(userId: string): Promise<ConversationMember[]>
+  abstract findManyByConversationId(
+    conversationId: string
+  ): Promise<ConversationMember[]>
   abstract findByUserWithConversationId(
     userId: string,
     conversationId: string

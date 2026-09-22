@@ -2,6 +2,7 @@ import { Either, left, right } from '@/core/either'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { Injectable } from '@nestjs/common'
+import { DevicesRepository } from '@/domain/accounts/applications/repositories/device-repository'
 import { Message } from '../../entities/message'
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
 import { MessageRepository } from '../repositories/message-repository'
@@ -23,7 +24,8 @@ export class SendMessageUseCase {
   constructor(
     private conversationMemberRepository: ConversationMemberRepository,
     private messageRepository: MessageRepository,
-    private messageStream: MessageStream
+    private messageStream: MessageStream,
+    private devicesRepository: DevicesRepository
   ) {}
 
   async execute({
@@ -65,7 +67,24 @@ export class SendMessageUseCase {
     })
 
     await this.messageRepository.create(message)
-    await this.messageStream.publish(conversationId, message)
+    // Fan-out: todo device ativo de todo membro (inclusive os outros devices
+    // de quem enviou) recebe a mensagem no seu inbox.
+    const members =
+      await this.conversationMemberRepository.findManyByConversationId(
+        conversationId
+      )
+    const devices = await this.devicesRepository.findManyByUserIds(
+      members.map((member) => member.userId.toString())
+    )
+    const recipientDeviceIds = devices
+      .filter((device) => !device.isRevoked)
+      .map((device) => device.id.toString())
+
+    await this.messageStream.publish(
+      conversationId,
+      message,
+      recipientDeviceIds
+    )
 
     return right({ message: MessageMapper.toDto(message) })
   }

@@ -18,6 +18,10 @@ export class InMemoryDevicesRepository implements DevicesRepository {
     return this.items.filter((item) => item.userId.toString() === userId)
   }
 
+  async findManyByUserIds(userIds: string[]): Promise<Device[]> {
+    return this.items.filter((item) => userIds.includes(item.userId.toString()))
+  }
+
   async create(device: Device): Promise<void> {
     this.items.push(device)
   }

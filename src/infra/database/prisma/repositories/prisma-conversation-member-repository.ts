@@ -30,6 +30,16 @@ export class PrismaConversationMemberRepository
     return conversationMembers.map(PrismaConversationMemberMapper.toDomain)
   }
 
+  async findManyByConversationId(
+    conversationId: string
+  ): Promise<ConversationMember[]> {
+    const conversationMembers = await this.prisma.conversationMember.findMany({
+      where: { conversationId },
+    })
+
+    return conversationMembers.map(PrismaConversationMemberMapper.toDomain)
+  }
+
   async findByUserWithConversationId(
     userId: string,
     conversationId: string

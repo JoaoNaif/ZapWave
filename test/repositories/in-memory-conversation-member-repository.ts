@@ -20,6 +20,14 @@ export class InMemoryConversationMemberRepository implements ConversationMemberR
     return this.items.filter((item) => item.userId.toString() === userId)
   }
 
+  async findManyByConversationId(
+    conversationId: string
+  ): Promise<ConversationMember[]> {
+    return this.items.filter(
+      (item) => item.conversationId.toString() === conversationId
+    )
+  }
+
   async findByUserWithConversationId(
     userId: string,
     conversationId: string

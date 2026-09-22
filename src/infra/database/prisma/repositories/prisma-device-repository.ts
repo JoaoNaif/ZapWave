@@ -28,6 +28,14 @@ export class PrismaDevicesRepository implements DevicesRepository {
     return devices.map(PrismaDeviceMapper.toDomain)
   }
 
+  async findManyByUserIds(userIds: string[]): Promise<Device[]> {
+    const devices = await this.prisma.device.findMany({
+      where: { userId: { in: userIds } },
+    })
+
+    return devices.map(PrismaDeviceMapper.toDomain)
+  }
+
   async create(device: Device): Promise<void> {
     const data = PrismaDeviceMapper.toPrisma(device)
 
