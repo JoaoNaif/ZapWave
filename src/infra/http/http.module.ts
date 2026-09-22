@@ -38,6 +38,10 @@ import { SendMessageController } from './controllers/chat/send-message.controlle
 import { SendMessageUseCase } from '@/domain/chat/applications/use-cases/send-message'
 import { AckMessageDeliveryController } from './controllers/chat/ack-message-delivery.controller'
 import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
+import { FetchNotificationsController } from './controllers/notifications/fetch-notifications.controller'
+import { FetchNotificationsUseCase } from '@/domain/notification/applications/use-cases/fetch-notification'
+import { ReadNotificationController } from './controllers/notifications/read-notification.controller'
+import { ReadNotificationUseCase } from '@/domain/notification/applications/use-cases/read-notification'
 
 @Module({
   imports: [DatabaseModule, RedisModule, CryptographyModule, EnvModule],
@@ -58,6 +62,8 @@ import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/
     OpenDirectConversationController,
     SendMessageController,
     AckMessageDeliveryController,
+    FetchNotificationsController,
+    ReadNotificationController,
     HealthController,
   ],
   providers: [
@@ -77,6 +83,8 @@ import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/
     OpenDirectConversationUseCase,
     SendMessageUseCase,
     AckMessageDeliveryUseCase,
+    FetchNotificationsUseCase,
+    ReadNotificationUseCase,
     { provide: SessionGateway, useClass: NoopSessionGateway },
   ],
 })

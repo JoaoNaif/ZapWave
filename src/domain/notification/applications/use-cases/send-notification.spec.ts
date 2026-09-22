@@ -19,8 +19,16 @@ describe('Send Notification', () => {
     })
 
     expect(result.isRight()).toBe(true)
-    expect(inMemoryNotificationsRepository.items[0]).toEqual(
-      result.value?.notification
+    expect(inMemoryNotificationsRepository.items[0].id.toString()).toBe(
+      result.value?.notification.id
     )
+    expect(result.value?.notification).toEqual({
+      id: expect.any(String),
+      recipientId: '1',
+      title: 'Nova notificação',
+      content: 'Conteúdo da notificação',
+      readAt: null,
+      createdAt: expect.any(Date),
+    })
   })
 })

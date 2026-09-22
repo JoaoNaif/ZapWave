@@ -28,6 +28,9 @@ describe('Send Notification', () => {
     expect(inMemoryNotificationsRepository.items[0].readAt).toEqual(
       expect.any(Date)
     )
+    if (result.isRight()) {
+      expect(result.value.notification.readAt).toEqual(expect.any(Date))
+    }
   })
 
   it('should not be able to read a notification from another user', async () => {
