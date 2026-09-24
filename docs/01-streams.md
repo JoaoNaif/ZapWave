@@ -193,11 +193,35 @@ depois de X** e manda para a sua conexão.
 backpressure, isso não derruba o servidor no instante em que você reconecta — vai no
 ritmo que a sua conexão aguenta.
 
-### Lugar 4 (fase posterior) — Arquivar mensagens no banco
+### Lugar 4 (adiado de propósito) — Arquivar mensagens no banco
 
 Um processo que lê o "rio" de todas as mensagens e grava no Postgres **em lotes**
 (ex: a cada 200 mensagens ou a cada 2 segundos). Entrada rápida, saída em lote mais
-lenta → backpressure mantém estável. Bom exercício, mas depois.
+lenta → backpressure mantém estável.
+
+> **Por que não fizemos (decisão de 2026-09-23):**
+>
+> - **Não existe a dor que ele resolve.** O `SendMessage` já grava a mensagem no
+>   Postgres na hora. Um arquivador hoje só regravaria o que já está lá.
+> - **O jeito atual aguenta bem.** Medido no Postgres local, com 2.000 mensagens:
+>   143 msgs/s uma por vez em sequência, **988 msgs/s com 10 conexões em paralelo**
+>   (o caso de um servidor real) e 2.500 msgs/s em lotes de 200. Ou seja, ~1.000
+>   msgs/s já funciona — coisa de dezenas de milhares de pessoas escrevendo ao mesmo
+>   tempo, longe da escala deste projeto.
+> - **Fazer de verdade é caro e arriscado.** Para o arquivador ser útil, o `SendMessage`
+>   teria que parar de gravar no Postgres (isso se chama *write-behind*). Aí:
+>   - o Redis do `docker-compose` só faz snapshot: uma queda perderia mensagens que já
+>     foram confirmadas ao remetente (201);
+>   - as chaves estrangeiras de `Device.resumeCursorId` e
+>     `ConversationMember.lastReadMessageId` apontam para `messages` e quebrariam;
+>   - o dedupe por `clientMessageId` e o `GET /conversation-history` leem do Postgres.
+>
+> **Quando reconsiderar:** se a gravação virar gargalo **medido** (banco no limite com
+> bem mais de ~1.000 msgs/s sustentadas).
+>
+> Ele chegou a ser implementado e testado (Redis → Transform que agrupa em lotes →
+> Postgres; com o banco lento, só 40 de 600 mensagens ficaram "em voo" ao mesmo
+> tempo), e foi removido por não ter uso real.
 
 ### Onde NÃO vamos usar stream
 

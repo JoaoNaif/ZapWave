@@ -221,6 +221,29 @@ describe('Invite To Room (e2e)', () => {
     expect(response.statusCode).toBe(409)
   })
 
+  test('[POST] /room-invite with two simultaneous requests creates exactly one invite', async () => {
+    const { owner, roomId } = await createRoom()
+    const recipient = await createSession()
+    const body = { conversationId: roomId, recipientId: recipient.userId }
+
+    // sem a constraint única, os dois podem passar juntos pela checagem do
+    // use-case; com ela, quem perde a corrida recebe 409 (e não um 500)
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        owner.agent.post('/room-invite').send(body)
+      )
+    )
+
+    const statuses = responses.map((response) => response.statusCode).sort()
+    expect(statuses).toEqual([201, 409, 409, 409, 409])
+
+    const invitesOnDatabase = await prisma.roomInvite.count({
+      where: { conversationId: roomId, inviteeId: recipient.userId },
+    })
+
+    expect(invitesOnDatabase).toBe(1)
+  })
+
   test('[POST] /room-invite with an already existing invite fails', async () => {
     const { owner, roomId } = await createRoom()
     const recipient = await createSession()

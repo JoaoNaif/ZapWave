@@ -98,18 +98,11 @@ export class OpenDirectConversationUseCase {
     // userId+friendId); falta o repositório Prisma calcular esse valor no
     // create() e este use-case capturar a violação pra re-buscar em vez de
     // duplicar.
-    //
-    // TODO(infra): create() da Conversation + dos 2 ConversationMember são
-    // 3 escritas separadas — se o processo cair no meio, sobra Conversation
-    // órfã sem membro. Envolver num $transaction do Prisma (ou um método
-    // tipo createWithMembers) quando o PrismaConversationRepository existir.
     const newConversation = Conversation.create({
       type: 'dm',
       name: null,
       createdById: new UniqueEntityId(userId),
     })
-
-    await this.conversationRepository.create(newConversation)
 
     const userMembership = ConversationMember.create({
       conversationId: newConversation.id,
@@ -125,8 +118,11 @@ export class OpenDirectConversationUseCase {
       lastReadMessageId: null,
     })
 
-    await this.conversationMemberRepository.create(userMembership)
-    await this.conversationMemberRepository.create(friendMembership)
+    // atômico: nunca sobra uma DM sem os dois membros (ou só com um)
+    await this.conversationRepository.createWithMembers(newConversation, [
+      userMembership,
+      friendMembership,
+    ])
 
     return right({
       conversation: ConversationMapper.toDto(newConversation),

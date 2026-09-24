@@ -66,15 +66,10 @@ export class AcceptRoomInviteUseCase {
       lastReadMessageId: null,
     })
 
-    await this.conversationMemberRepository.create(member)
-
     invite.accept()
 
-    // TODO(infra): o create() do ConversationMember e o save() do RoomInvite são
-    // duas escritas separadas — se cair no meio, o usuário entra na sala mas o
-    // convite continua 'pending'. Envolver num $transaction do Prisma quando o
-    // PrismaRoomInviteRepository existir.
-    await this.roomInviteRepository.save(invite)
+    // atômico: nunca sobra o usuário na sala com o convite ainda 'pending'
+    await this.roomInviteRepository.acceptWithMember(invite, member)
 
     return right({
       invite: RoomMapper.inviteToDto(invite),

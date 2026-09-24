@@ -20,9 +20,11 @@ let sut: OpenDirectConversationUseCase
 describe('Open Direct Conversation', () => {
   beforeEach(() => {
     inMemoryFriendshipRepository = new InMemoryFriendshipRepository()
-    inMemoryConversationRepository = new InMemoryConversationRepository()
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
+    inMemoryConversationRepository = new InMemoryConversationRepository(
+      inMemoryConversationMemberRepository
+    )
 
     sut = new OpenDirectConversationUseCase(
       inMemoryFriendshipRepository,

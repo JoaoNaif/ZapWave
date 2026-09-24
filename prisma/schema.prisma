@@ -158,6 +158,9 @@ model RoomInvite {
   inviter      User         @relation("InviterRooms", fields: [inviterId], references: [id], onDelete: Cascade)
   invitee      User         @relation("InviteeRooms", fields: [inviteeId], references: [id], onDelete: Cascade)
 
+  // um convite por (sala, convidado): segura dois pedidos simultâneos que
+  // passariam juntos pela checagem do use-case (invite-to-room)
+  @@unique([conversationId, inviteeId])
   @@map("rooms_invites")
 }
 

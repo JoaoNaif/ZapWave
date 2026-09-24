@@ -10,14 +10,13 @@ let sut: CreateRoomUseCase
 
 describe('Create Room', () => {
   beforeEach(() => {
-    inMemoryConversationRepository = new InMemoryConversationRepository()
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
-
-    sut = new CreateRoomUseCase(
-      inMemoryConversationRepository,
+    inMemoryConversationRepository = new InMemoryConversationRepository(
       inMemoryConversationMemberRepository
     )
+
+    sut = new CreateRoomUseCase(inMemoryConversationRepository)
   })
 
   it('should be able to create a room', async () => {

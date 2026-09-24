@@ -150,6 +150,16 @@ zapwave/
    trocar por `InMemoryMessageStream` é uma linha.
 5. **`infra/streams/` é pasta própria de propósito** — é o assunto que o projeto existe
    para estudar ([doc 01](./01-streams.md)), então não fica diluído dentro do gateway.
+6. **Escritas que precisam ser "tudo ou nada" vão num método só do repositório.** Se o
+   processo cair entre duas escritas separadas, sobra registro pela metade (uma sala sem
+   dono, um usuário na sala com o convite ainda pendente). Por isso existem
+   `ConversationRepository.createWithMembers` (create aninhado do Prisma) e
+   `RoomInviteRepository.acceptWithMember` (`$transaction`, com os eventos de domínio
+   disparados só **depois** do commit). O nome do método diz que é atômico; não há Unit
+   of Work genérico porque hoje só existem esses casos. E o que a checagem do use-case
+   não segura (dois pedidos simultâneos) é responsabilidade de uma constraint do banco —
+   ex.: `RoomInvite` é único por `(conversationId, inviteeId)`, e a violação vira o mesmo
+   409 da checagem.
 
 ---
 

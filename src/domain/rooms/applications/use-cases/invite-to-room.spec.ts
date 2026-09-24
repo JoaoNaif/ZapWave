@@ -212,4 +212,43 @@ describe('Invite To Room', () => {
     expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
     expect(inMemoryRoomInviteRepository.items).toHaveLength(1)
   })
+
+  it('should still answer "already exists" when a concurrent request wins the race after the check', async () => {
+    // Simula a corrida: no momento da checagem o convite ainda não existe (o
+    // outro pedido ainda não gravou), mas quando este chega no create() o
+    // outro já gravou e o banco recusa pela constraint única.
+    class RepositoryBlindToTheRace extends InMemoryRoomInviteRepository {
+      override async findByConversationIdAndInviteeId() {
+        return null
+      }
+    }
+
+    inMemoryRoomInviteRepository = new RepositoryBlindToTheRace()
+    sut = new InviteToRoomUseCase(
+      inMemoryConversationRepository,
+      inMemoryConversationMemberRepository,
+      inMemoryRoomInviteRepository
+    )
+
+    const { room } = await makeRoomWithOwner()
+
+    await inMemoryRoomInviteRepository.create(
+      makeRoomInvite({
+        conversationId: room.id,
+        inviteeId: new UniqueEntityId('user-2'),
+        inviterId: new UniqueEntityId('owner-1'),
+        status: 'pending',
+      })
+    )
+
+    const result = await sut.execute({
+      conversationId: room.id.toString(),
+      senderId: 'owner-1',
+      recipientId: 'user-2',
+    })
+
+    expect(result.isLeft()).toBe(true)
+    expect(result.value).toBeInstanceOf(ResourceAlreadyExistsError)
+    expect(inMemoryRoomInviteRepository.items).toHaveLength(1)
+  })
 })

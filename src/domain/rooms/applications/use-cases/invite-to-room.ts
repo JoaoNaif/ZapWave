@@ -81,11 +81,16 @@ export class InviteToRoomUseCase {
       status: 'pending',
     })
 
-    // TODO(infra): o findByConversationIdAndInviteeId + create são checagem e
-    // escrita separadas — dois convites concorrentes passam os dois pela
-    // verificação. Garantir unique (conversationId, inviteeId) no schema Prisma
-    // e tratar a violação aqui quando o PrismaRoomInviteRepository existir.
-    await this.roomInviteRepository.create(invite)
+    // A checagem acima não segura dois pedidos simultâneos (os dois passam
+    // por ela). Quem segura é a constraint única (conversationId, inviteeId)
+    // do banco: o segundo create falha e vira o mesmo 409 da checagem.
+    try {
+      await this.roomInviteRepository.create(invite)
+    } catch (error) {
+      if (error instanceof ResourceAlreadyExistsError) return left(error)
+
+      throw error
+    }
 
     return right({
       invite: RoomMapper.inviteToDto(invite),

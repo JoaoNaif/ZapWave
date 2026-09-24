@@ -22,7 +22,9 @@ describe('Accept Room Invite', () => {
     inMemoryConversationRepository = new InMemoryConversationRepository()
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
-    inMemoryRoomInviteRepository = new InMemoryRoomInviteRepository()
+    inMemoryRoomInviteRepository = new InMemoryRoomInviteRepository(
+      inMemoryConversationMemberRepository
+    )
 
     sut = new AcceptRoomInviteUseCase(
       inMemoryConversationRepository,

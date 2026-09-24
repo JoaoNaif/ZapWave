@@ -3,6 +3,8 @@ import { Conversation } from '@/domain/chat/entities/conversation'
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
 import { PrismaConversationMapper } from '../mappers/prisma-conversation-mapper'
+import { PrismaConversationMemberMapper } from '../mappers/prisma-conversation-member-mapper'
+import { ConversationMember } from '@/domain/chat/entities/conversation-member'
 
 @Injectable()
 export class PrismaConversationRepository implements ConversationRepository {
@@ -29,6 +31,29 @@ export class PrismaConversationRepository implements ConversationRepository {
 
     await this.prisma.conversation.create({
       data,
+    })
+  }
+
+  // Um create aninhado do Prisma roda numa transação só: se algum membro
+  // falhar (ex.: usuário inexistente), a conversa também não é gravada.
+  async createWithMembers(
+    conversation: Conversation,
+    members: ConversationMember[]
+  ): Promise<void> {
+    await this.prisma.conversation.create({
+      data: {
+        ...PrismaConversationMapper.toPrisma(conversation),
+        conversationMembers: {
+          create: members.map((member) => {
+            // o conversationId vem do próprio aninhamento
+            const { conversationId, ...data } =
+              PrismaConversationMemberMapper.toPrisma(member)
+            void conversationId
+
+            return data
+          }),
+        },
+      },
     })
   }
 
