@@ -244,7 +244,7 @@ fase posterior.
 | Amizade | Enviar pedido, **Aceitar / recusar** pedido |
 | Sala | Criar sala, Convidar (admin), Remover membro (admin), **Sair da sala** |
 | Conversa | Conversar no privado (DM), Conversar em sala |
-| Tempo real | **Indicador de digitação**, **Presença / visto por último**, **Recibos ✓ (entregue) / ✓✓ (lida)**, **Reconexão / resume** |
+| Tempo real | **Presença / visto por último**, **Recibos ✓ (entregue) / ✓✓ (lida)**, **Reconexão / resume** |
 | Histórico | Paginação / scroll infinito (stream — [doc 01](./01-streams.md), Lugar 2) |
 
 ### Pendentes (decididas, ainda sem implementação)
@@ -277,10 +277,10 @@ agiu ("`<uuid>` te enviou um pedido de amizade"). Serve pra provar o fluxo, não
 quando o frontend existir, ou o texto passa a usar o `displayName`, ou a notificação
 guarda o id (e o tipo) e o front monta a frase.
 
-**Revogar sessão não corta o acesso HTTP.** `revoke-device` marca o `Device` como
-revogado, e o WebSocket e o ack respeitam isso — mas o JWT do cookie continua válido por
-até 24h e o `JwtStrategy` só lê o `sub`, sem olhar o device. Ou seja: revogar impede novas
-conexões WS, não impede o mesmo cookie de chamar a API HTTP. Solução em análise.
+**Indicador de digitação.** Continua decidido (fluxo "Digitação", §7), mas ainda não existe
+no código: nem o frame `typing` no WebSocket, nem o repasse aos outros membros online. É o
+caso de EventEmitter puro (evento pontual, sem backpressure) do [doc 01](./01-streams.md) §5.
+Só faz sentido implementar junto com a tela de conversa.
 
 ### Fase posterior
 
@@ -304,6 +304,9 @@ WebSocket usando esse token.
 
 ### Logout
 `revokedAt` no `Device` (ou apaga). "Sair de todos": em todos os `Device` do usuário.
+Revogar vale **na hora, no HTTP e no WebSocket**: o cookie daquele device passa a levar 401
+e o socket aberto é fechado com 4401. Outras sessões do mesmo usuário não são afetadas.
+Como funciona (cache no Redis, `deviceId` dentro do JWT): [doc 05](./05-websocket.md) §9.
 
 ### Adicionar amigo
 `A` envia pedido → `Friendship(status=pending, sender=A, recipient=B)` + `Notification(B, friend_request)`.

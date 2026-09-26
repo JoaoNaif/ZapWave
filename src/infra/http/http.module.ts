@@ -10,8 +10,7 @@ import { HealthController } from './controllers/health.controller'
 import { AuthenticateUserUseCase } from '@/domain/accounts/applications/use-cases/authenticate-user'
 import { RegisterUserUseCase } from '@/domain/accounts/applications/use-cases/register-user'
 import { RevokeDeviceUseCase } from '@/domain/accounts/applications/use-cases/revoke-device'
-import { SessionGateway } from '@/domain/accounts/applications/gateways/session-gateway'
-import { NoopSessionGateway } from '../gateways/noop-session-gateway'
+import { WebsocketModule } from '../websocket/websocket.module'
 import { SendFriendInviteController } from './controllers/social/send-friend-invite.controller'
 import { AcceptController } from './controllers/social/accept.controller'
 import { DeclineController } from './controllers/social/decline.controller'
@@ -46,7 +45,15 @@ import { FetchPresenceController } from './controllers/chat/fetch-presence.contr
 import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch-presence'
 
 @Module({
-  imports: [DatabaseModule, RedisModule, CryptographyModule, EnvModule],
+  // WebsocketModule: fornece o SessionGateway que o revoke-device usa pra
+  // fechar o socket do device revogado
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    CryptographyModule,
+    EnvModule,
+    WebsocketModule,
+  ],
   controllers: [
     AuthenticateUserController,
     RegisterUserController,
@@ -89,7 +96,6 @@ import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch
     FetchNotificationsUseCase,
     ReadNotificationUseCase,
     FetchPresenceUseCase,
-    { provide: SessionGateway, useClass: NoopSessionGateway },
   ],
 })
 export class HttpModule {}

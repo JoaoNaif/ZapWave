@@ -15,12 +15,12 @@ HTTP normais (foge do pipeline do Express), então `ws-auth.ts` extrai e valida 
 mão, direto do header `Cookie` bruto (com fallback pra `Authorization: Bearer`, pro mesmo
 client não-browser que já usa isso na API HTTP).
 
-O JWT só carrega `sub` (userId) — não diz **qual device**. O cliente manda isso à parte,
-na URL: `ws://.../ws?deviceId=<uuid>`. O servidor então confere que esse device existe,
-pertence a esse userId e não foi revogado (mesma checagem que já existe em
-`AckMessageDeliveryUseCase`). Qualquer falha em qualquer uma dessas etapas fecha o socket
-com o mesmo código — de propósito, pra não vazar pro cliente qual validação especificamente
-falhou.
+O JWT carrega `sub` (userId) e `deviceId` (o device criado naquele login). Mesmo assim, o
+handshake do WS pede o `deviceId` também na URL: `ws://.../ws?deviceId=<uuid>` — hoje o
+servidor usa o da URL, não o do token. Ele confere que esse device existe, pertence a esse
+userId e não foi revogado (mesma checagem que já existe em `AckMessageDeliveryUseCase`).
+Qualquer falha em qualquer uma dessas etapas fecha o socket com o mesmo código — de
+propósito, pra não vazar pro cliente qual validação especificamente falhou.
 
 **Por que query string e não primeira mensagem:** dá pra rejeitar a conexão **antes** dela
 ser aceita, sem gastar um round-trip aceitando o socket pra só depois fechar.
@@ -37,7 +37,8 @@ teste) passa — esse não é o risco, e continua precisando de token válido.
 
 `4401` para qualquer falha de autenticação/autorização do handshake (token ausente ou
 inválido, `deviceId` ausente, device de outro usuário, device revogado, `Origin` não
-permitido). Faixa 4000-4999 é
+permitido) e também para o fechamento de um socket **já aberto** quando o device é
+revogado (§9). Faixa 4000-4999 é
 de uso privado por aplicação (RFC 6455) — não colide com os códigos 1000-2999 reservados
 pro protocolo.
 
@@ -149,7 +150,43 @@ Pub/Sub, a leitura de fato continua sendo `XREADGROUP` sem `BLOCK`). **Decisão 
 não fazer nada — a simplicidade de "1 device = 1 pipeline = 1 conexão" é justamente o que
 deixa o backpressure por device fácil de enxergar.
 
-## 9. O que fica para depois
+## 9. Revogar sessão: corta o HTTP e fecha o socket aberto
+
+O JWT vale 24h e, sozinho, não sabe que foi revogado. Duas peças resolvem:
+
+**HTTP — `deviceId` no token + cache no Redis.** O `JwtStrategy` (`jwt-strategy.ts`), depois
+de conferir assinatura e validade, pergunta ao `DeviceSessionCache` se o `deviceId` do token
+ainda está ativo. Ir ao Postgres a cada request seria desperdício, então o Redis fica na
+frente (`device-session:<deviceId>` = `active` | `revoked`):
+
+- **Leitura (`isActive`):** olha o Redis; se não tem nada, pergunta ao Postgres
+  (`Device.revokedAt`) e guarda `active` por 5 min. Postgres continua sendo a verdade.
+- **Revogação (`markRevoked`):** o `RevokeDeviceUseCase` grava no Postgres e depois chama o
+  `SessionGateway`; o adapter grava `revoked` no Redis (por 24h, a vida do token) — vale na
+  hora, em qualquer instância. Os 5 min do `active` são só um seguro pro caso do Redis ter
+  falhado exatamente nesse instante.
+- **`SET ... NX` no `active`:** se uma revogação chegar entre a leitura do Postgres e a
+  gravação do cache, o `revoked` dela não pode ser sobrescrito pelo `active` velho.
+- **Redis fora do ar:** o cache é opcional. Erro de leitura vira "não sei" e a checagem cai
+  no Postgres; só fica mais lento, nunca deixa de checar.
+- **Token sem `deviceId`** (de antes disso existir) é recusado: a sessão precisa ser refeita.
+
+**WebSocket — `ConnectionRegistry`.** Um mapa `deviceId → sockets` em memória
+(`connection-registry.ts`), preenchido no `handleConnection`. O adapter `WsSessionGateway`
+(implementa o port `SessionGateway`) chama `closeAll(deviceId, 4401)` e o socket daquele
+device cai na hora. Depois de registrar o socket, o gateway confere o cache mais uma vez:
+fecha a brecha de um device revogado *durante* o handshake, entre o `authenticate` ler o
+Postgres e o socket entrar no mapa.
+
+Só o device revogado cai — outras sessões do mesmo usuário (outros aparelhos) seguem
+normais. **Limite conhecido:** o `ConnectionRegistry` é por processo. Com mais de uma
+instância do servidor, o HTTP já é cortado em todas (o cache é o Redis compartilhado), mas
+o socket só fecha na instância que recebeu o pedido de revogação; nas outras ele segue
+aberto até o cliente cair por conta própria (a reconexão, essa sim, é recusada). Fechar de
+imediato em todas exigiria Pub/Sub no Redis avisando "feche o device X" — não feito por
+ora, pelo mesmo motivo do §8.
+
+## 10. O que fica para depois
 
 - Multi-tab / múltiplas conexões pro mesmo device (ver [06](./06-redis-streams.md) §1).
 - "Fulano está digitando" — mesmo raciocínio do §5 (EventEmitter, evento pontual), ainda

@@ -6,13 +6,12 @@ import z from 'zod'
 import { MessageStream } from '@/domain/chat/applications/gateways/message-stream'
 import { Presence } from '@/domain/chat/applications/gateways/presence'
 import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
+import { DeviceSessionCache } from '../auth/device-session-cache'
 import { startDeliveryPipeline } from '../streams/delivery-pipeline'
+import { CLOSE_UNAUTHORIZED } from './close-codes'
+import { ConnectionRegistry } from './connection-registry'
 import { startHeartbeat } from './heartbeat'
 import { WsAuthService } from './ws-auth'
-
-// Códigos de fechamento privados (4000-4999, livres por RFC 6455 — não
-// colidem com os 1000-2999 reservados pro protocolo/frameworks).
-const CLOSE_UNAUTHORIZED = 4401
 
 const clientFrameSchema = z.object({
   type: z.literal('ack'),
@@ -27,7 +26,9 @@ export class ChatGateway implements OnGatewayConnection {
     private wsAuth: WsAuthService,
     private messageStream: MessageStream,
     private presence: Presence,
-    private ackMessageDelivery: AckMessageDeliveryUseCase
+    private ackMessageDelivery: AckMessageDeliveryUseCase,
+    private connections: ConnectionRegistry,
+    private deviceSessions: DeviceSessionCache
   ) {}
 
   async handleConnection(client: WebSocket, request: IncomingMessage) {
@@ -40,6 +41,16 @@ export class ChatGateway implements OnGatewayConnection {
 
     const { userId, device } = context
     const deviceId = device.id.toString()
+
+    // Registra ANTES de conferir de novo: se o device foi revogado durante o
+    // handshake (depois do authenticate ler o Postgres), a marca de revogação
+    // já está no cache e esta conferência pega; se for revogado depois, o
+    // closeAll da revogação já encontra este socket registrado.
+    this.connections.add(deviceId, client)
+    if (!(await this.deviceSessions.isActive(userId, deviceId))) {
+      client.close(CLOSE_UNAUTHORIZED, 'unauthorized')
+      return
+    }
 
     startHeartbeat(client, this.presence, userId)
 

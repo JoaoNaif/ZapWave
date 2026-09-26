@@ -85,7 +85,8 @@ Contextos do domínio (por assunto, não por tipo técnico): `accounts`, `social
 
 Ports que o `infra` implementa e o `test` substitui por fakes: `MessageStream` e `Presence`
 (`chat/applications/gateways/`), `SessionGateway` (`accounts/applications/gateways/`),
-mais os repositórios e os de criptografia.
+mais os repositórios e os de criptografia. Adapters reais: `RedisMessageStream`,
+`RedisPresence`, `WsSessionGateway`.
 
 > Nota: o `docs/04` diz `enterprise/` + `application/`. O código atual usa `entities/` +
 > `applications/` (plural). Seguir o padrão **já existente no código** ao adicionar arquivos
@@ -145,6 +146,10 @@ Backend funcional de ponta a ponta, ainda sem frontend:
   (`ChatGateway` em `/ws`) com o pipeline de Node streams (`Readable` → `Transform` →
   `Writable` via `pipeline()`), heartbeat com `terminate()` de conexão morta, e o
   `NotificationModule` ligando os eventos de domínio ao `SendNotificationUseCase`.
+- **Revogar sessão** corta HTTP e WebSocket na hora: o JWT leva `deviceId`, o `JwtStrategy`
+  confere o device num cache Redis (`DeviceSessionCache`, cai no Postgres se não souber) e o
+  `WsSessionGateway` (adapter real do `SessionGateway`) fecha o socket aberto com 4401.
+  Detalhes em [`docs/05`](./docs/05-websocket.md) §9.
 - **Escritas atômicas:** DM (`dmKey` unique), criação de sala e aceite de convite gravam
   tudo-ou-nada; convite tem unique `(conversationId, inviteeId)`.
 - **Endurecimento feito:** helmet, CORS só localhost, rate limit, checagem de `Origin` no WS,
@@ -153,6 +158,6 @@ Backend funcional de ponta a ponta, ainda sem frontend:
 **Pendências conhecidas** (detalhes em [`docs/03`](./docs/03-entidades.md) §6):
 listagens de leitura (minhas conversas, amigos, pedidos e convites pendentes, membros da sala,
 meus devices) e o contador de não lidas — serão definidos junto com o frontend; falta o
-`decline-room-invite`; revogar device não invalida o JWT no HTTP (só no WS/ack); texto das
-notificações usa id cru; indicador de digitação ainda não existe; `NoopSessionGateway` é o
-adapter atual de `SessionGateway`.
+`decline-room-invite`; texto das notificações usa id cru; indicador de digitação (frame
+`typing` no WS) ainda não existe; o `ConnectionRegistry` é por processo, então revogar só
+fecha de imediato os sockets da instância que recebeu o pedido (ver `docs/05` §9).

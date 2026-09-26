@@ -68,6 +68,7 @@ describe('Chat Gateway (e2e)', () => {
     return {
       agent,
       cookie,
+      email,
       userId: registerResponse.body.user.id as string,
       deviceId: sessionResponse.body.device_id as string,
     }
@@ -164,6 +165,49 @@ describe('Chat Gateway (e2e)', () => {
     const code = await waitForClose(socket)
 
     expect(code).toBe(4401)
+  })
+
+  test('closes an already open connection with 4401 when its device is revoked', async () => {
+    const owner = await createSession()
+
+    const { socket } = connect(owner.cookie, owner.deviceId)
+    await waitForOpen(socket)
+    const closed = waitForClose(socket)
+
+    await owner.agent
+      .put('/revoke-device')
+      .send({ deviceId: owner.deviceId })
+
+    expect(await closed).toBe(4401)
+  })
+
+  test('revoking a device does not close the connections of the same user other devices', async () => {
+    const first = await createSession()
+
+    // segundo login do mesmo usuário = segundo device
+    const secondAgent = request.agent(app.getHttpServer())
+    const secondLogin = await secondAgent.post('/sessions').send({
+      email: first.email,
+      password: '123456',
+      deviceName: 'Firefox no Linux',
+    })
+    const secondCookie = secondLogin.headers['set-cookie'][0].split(';')[0]
+    const secondDeviceId = secondLogin.body.device_id as string
+
+    const firstConn = connect(first.cookie, first.deviceId)
+    const secondConn = connect(secondCookie, secondDeviceId)
+    await waitForOpen(firstConn.socket)
+    await waitForOpen(secondConn.socket)
+    const firstClosed = waitForClose(firstConn.socket)
+
+    await first.agent
+      .put('/revoke-device')
+      .send({ deviceId: first.deviceId })
+
+    expect(await firstClosed).toBe(4401)
+    // dá tempo de um fechamento indevido do segundo chegar
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(secondConn.socket.readyState).toBe(WebSocket.OPEN)
   })
 
   test('closes with 4401 when the deviceId query param is missing', async () => {

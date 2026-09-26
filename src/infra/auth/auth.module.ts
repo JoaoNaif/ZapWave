@@ -7,10 +7,12 @@ import { APP_GUARD } from '@nestjs/core'
 import { PrismaService } from '../database/prisma/prisma.service'
 import { JwtAuthGuard } from './jwt-auth.guard'
 import { JwtStrategy } from './jwt-strategy'
+import { DeviceSessionModule } from './device-session.module'
 
 @Module({
   imports: [
     PassportModule,
+    DeviceSessionModule,
     JwtModule.registerAsync({
       imports: [EnvModule],
       inject: [EnvService],
