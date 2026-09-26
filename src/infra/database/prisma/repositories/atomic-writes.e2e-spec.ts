@@ -124,6 +124,66 @@ describe('Atomic writes (e2e)', () => {
     })
   })
 
+  describe('ConversationRepository.createWithMembers (one DM per pair)', () => {
+    function makeDm(createdById: string, dmKey: string) {
+      return Conversation.create({
+        type: 'dm',
+        name: null,
+        createdById: new UniqueEntityId(createdById),
+        dmKey,
+      })
+    }
+
+    test('refuses a second DM for the same pair and leaves nothing behind', async () => {
+      const userA = await createUser()
+      const userB = await createUser()
+      const dmKey = Conversation.dmKeyFor(userA.id, userB.id)
+      const first = makeDm(userA.id, dmKey)
+      const second = makeDm(userB.id, dmKey)
+
+      await conversationRepository.createWithMembers(first, [
+        makeMember(first.id, userA.id),
+        makeMember(first.id, userB.id),
+      ])
+
+      await expect(
+        conversationRepository.createWithMembers(second, [
+          makeMember(second.id, userA.id),
+          makeMember(second.id, userB.id),
+        ])
+      ).rejects.toBeInstanceOf(ResourceAlreadyExistsError)
+
+      expect(await prisma.conversation.count({ where: { dmKey } })).toBe(1)
+      expect(
+        await prisma.conversation.findUnique({
+          where: { id: second.id.toString() },
+        })
+      ).toBeNull()
+      expect(
+        await prisma.conversationMember.count({
+          where: { conversationId: second.id.toString() },
+        })
+      ).toBe(0)
+    })
+
+    test('does not limit rooms: they have no key, so a user can have many', async () => {
+      const owner = await createUser()
+      const roomA = makeRoom(owner.id)
+      const roomB = makeRoom(owner.id)
+
+      await conversationRepository.createWithMembers(roomA, [
+        makeMember(roomA.id, owner.id, 'owner'),
+      ])
+      await conversationRepository.createWithMembers(roomB, [
+        makeMember(roomB.id, owner.id, 'owner'),
+      ])
+
+      expect(
+        await prisma.conversation.count({ where: { createdById: owner.id } })
+      ).toBe(2)
+    })
+  })
+
   describe('RoomInviteRepository.acceptWithMember', () => {
     async function createPendingInvite() {
       const inviter = await createUser()

@@ -1,3 +1,4 @@
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 import { ConversationRepository } from '@/domain/chat/applications/repositories/conversation-repository'
 import { Conversation } from '@/domain/chat/entities/conversation'
 import { ConversationMember } from '@/domain/chat/entities/conversation-member'
@@ -22,6 +23,8 @@ export class InMemoryConversationRepository implements ConversationRepository {
   }
 
   async create(conversation: Conversation): Promise<void> {
+    this.assertDmKeyIsFree(conversation)
+
     this.items.push(conversation)
   }
 
@@ -35,11 +38,25 @@ export class InMemoryConversationRepository implements ConversationRepository {
       )
     }
 
+    this.assertDmKeyIsFree(conversation)
+
     this.items.push(conversation)
 
     for (const member of members) {
       await this.memberRepository.create(member)
     }
+  }
+
+  // espelha a constraint única do dm_key no banco
+  private assertDmKeyIsFree(conversation: Conversation) {
+    if (!conversation.dmKey) return
+
+    const alreadyExists = this.items.some(
+      (item) => item.dmKey === conversation.dmKey
+    )
+
+    if (alreadyExists)
+      throw new ResourceAlreadyExistsError('direct conversation')
   }
 
   async save(conversation: Conversation): Promise<void> {

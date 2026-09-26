@@ -4,6 +4,7 @@ import { ConversationMember } from '../../entities/conversation-member'
 import { FriendshipRepository } from '@/domain/social/applications/repositories/friendship-repository'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 import { FriendshipNotAcceptedError } from '../errors/friendship-not-accepted-error'
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
 import { ConversationRepository } from '../repositories/conversation-repository'
@@ -55,53 +56,21 @@ export class OpenDirectConversationUseCase {
 
     if (!friendship.isAccepted()) return left(new FriendshipNotAcceptedError())
 
-    const userMemberships =
-      await this.conversationMemberRepository.findManyByUserId(userId)
-    const friendMemberships =
-      await this.conversationMemberRepository.findManyByUserId(friendId)
+    const existing = await this.findExistingDirectConversation(userId, friendId)
 
-    const friendConversationIds = new Set(
-      friendMemberships.map((m) => m.conversationId.toString())
-    )
-
-    const sharedConversationIds = userMemberships
-      .map((m) => m.conversationId.toString())
-      .filter((id) => friendConversationIds.has(id))
-
-    let dmConversation: Conversation | null = null
-    let existingMembership: ConversationMember | null = null
-
-    for (const conversationId of sharedConversationIds) {
-      const conversation =
-        await this.conversationRepository.findById(conversationId)
-      if (conversation?.type === 'dm') {
-        dmConversation = conversation
-        existingMembership =
-          userMemberships.find(
-            (m) => m.conversationId.toString() === conversationId
-          ) ?? null
-        break
-      }
-    }
-
-    if (dmConversation && existingMembership) {
+    if (existing) {
       return right({
-        conversation: ConversationMapper.toDto(dmConversation),
-        member: ConversationMapper.memberToDto(existingMembership),
+        conversation: ConversationMapper.toDto(existing.conversation),
+        member: ConversationMapper.memberToDto(existing.member),
         isNewConversation: false,
       })
     }
 
-    // TODO(infra): check-then-act — duas chamadas concorrentes podem passar
-    // por aqui ao mesmo tempo e criar 2 DMs pro mesmo par. Conversation.dmKey
-    // (prisma/schema.prisma) já tem a constraint única (par normalizado
-    // userId+friendId); falta o repositório Prisma calcular esse valor no
-    // create() e este use-case capturar a violação pra re-buscar em vez de
-    // duplicar.
     const newConversation = Conversation.create({
       type: 'dm',
       name: null,
       createdById: new UniqueEntityId(userId),
+      dmKey: Conversation.dmKeyFor(userId, friendId),
     })
 
     const userMembership = ConversationMember.create({
@@ -118,16 +87,70 @@ export class OpenDirectConversationUseCase {
       lastReadMessageId: null,
     })
 
-    // atômico: nunca sobra uma DM sem os dois membros (ou só com um)
-    await this.conversationRepository.createWithMembers(newConversation, [
-      userMembership,
-      friendMembership,
-    ])
+    try {
+      // atômico: nunca sobra uma DM sem os dois membros (ou só com um)
+      await this.conversationRepository.createWithMembers(newConversation, [
+        userMembership,
+        friendMembership,
+      ])
+    } catch (error) {
+      if (!(error instanceof ResourceAlreadyExistsError)) throw error
+
+      // A checagem acima não segura dois pedidos simultâneos (os dois não
+      // acham DM e os dois tentam criar). Quem segura é a constraint única
+      // do dm_key: o segundo create falha, e aqui devolvemos a DM que o
+      // primeiro acabou de gravar — os dois pedidos acabam com a mesma DM.
+      const winner = await this.findExistingDirectConversation(userId, friendId)
+
+      if (!winner) throw error
+
+      return right({
+        conversation: ConversationMapper.toDto(winner.conversation),
+        member: ConversationMapper.memberToDto(winner.member),
+        isNewConversation: false,
+      })
+    }
 
     return right({
       conversation: ConversationMapper.toDto(newConversation),
       member: ConversationMapper.memberToDto(userMembership),
       isNewConversation: true,
     })
+  }
+
+  private async findExistingDirectConversation(
+    userId: string,
+    friendId: string
+  ): Promise<{
+    conversation: Conversation
+    member: ConversationMember
+  } | null> {
+    const userMemberships =
+      await this.conversationMemberRepository.findManyByUserId(userId)
+    const friendMemberships =
+      await this.conversationMemberRepository.findManyByUserId(friendId)
+
+    const friendConversationIds = new Set(
+      friendMemberships.map((m) => m.conversationId.toString())
+    )
+
+    const sharedConversationIds = userMemberships
+      .map((m) => m.conversationId.toString())
+      .filter((id) => friendConversationIds.has(id))
+
+    for (const conversationId of sharedConversationIds) {
+      const conversation =
+        await this.conversationRepository.findById(conversationId)
+
+      if (conversation?.type !== 'dm') continue
+
+      const member = userMemberships.find(
+        (m) => m.conversationId.toString() === conversationId
+      )
+
+      if (member) return { conversation, member }
+    }
+
+    return null
   }
 }

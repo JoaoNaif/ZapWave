@@ -10,6 +10,32 @@ import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { NotAllowedError } from '@/core/errors/err/not-allowed-error'
 import { FriendshipNotAcceptedError } from '../errors/friendship-not-accepted-error'
+import { Conversation } from '../../entities/conversation'
+import { ConversationMember } from '../../entities/conversation-member'
+
+// Simula a corrida: no instante em que este create() chega, outro pedido já
+// gravou a DM do mesmo par. O fake espelha a constraint única do dm_key, então
+// o create() do pedido perdedor falha como falharia no banco.
+class ConversationRepositoryWhoseCreateLosesTheRace extends InMemoryConversationRepository {
+  constructor(
+    memberRepository: InMemoryConversationMemberRepository,
+    private winner: {
+      conversation: Conversation
+      members: ConversationMember[]
+    }
+  ) {
+    super(memberRepository)
+  }
+
+  override async createWithMembers(
+    conversation: Conversation,
+    members: ConversationMember[]
+  ): Promise<void> {
+    await super.createWithMembers(this.winner.conversation, this.winner.members)
+
+    return super.createWithMembers(conversation, members)
+  }
+}
 
 let inMemoryFriendshipRepository: InMemoryFriendshipRepository
 let inMemoryConversationRepository: InMemoryConversationRepository
@@ -214,5 +240,93 @@ describe('Open Direct Conversation', () => {
 
     expect(result.isLeft()).toBe(true)
     expect(result.value).toBeInstanceOf(NotAllowedError)
+  })
+
+  it('should save the new dm with the key of the pair', async () => {
+    await inMemoryFriendshipRepository.create(
+      makeFriendship({
+        senderId: 'user-1',
+        recipientId: 'friend-1',
+        status: 'accepted',
+      })
+    )
+
+    await sut.execute({ userId: 'user-1', friendId: 'friend-1' })
+
+    expect(inMemoryConversationRepository.items[0].dmKey).toBe(
+      Conversation.dmKeyFor('friend-1', 'user-1')
+    )
+  })
+
+  it('should return the dm another request created between the check and the create', async () => {
+    const winnerConversation = makeConversation(
+      { type: 'dm', dmKey: Conversation.dmKeyFor('user-1', 'friend-1') },
+      new UniqueEntityId('winner-dm')
+    )
+    const winnerMembers = ['user-1', 'friend-1'].map((userId) =>
+      makeConversationMember({
+        conversationId: winnerConversation.id,
+        userId: new UniqueEntityId(userId),
+      })
+    )
+
+    inMemoryConversationRepository =
+      new ConversationRepositoryWhoseCreateLosesTheRace(
+        inMemoryConversationMemberRepository,
+        { conversation: winnerConversation, members: winnerMembers }
+      )
+    sut = new OpenDirectConversationUseCase(
+      inMemoryFriendshipRepository,
+      inMemoryConversationRepository,
+      inMemoryConversationMemberRepository
+    )
+
+    await inMemoryFriendshipRepository.create(
+      makeFriendship({
+        senderId: 'user-1',
+        recipientId: 'friend-1',
+        status: 'accepted',
+      })
+    )
+
+    const result = await sut.execute({ userId: 'user-1', friendId: 'friend-1' })
+
+    expect(result.isRight()).toBe(true)
+    if (result.isRight()) {
+      expect(result.value.conversation.id).toBe('winner-dm')
+      expect(result.value.member.userId).toBe('user-1')
+      expect(result.value.isNewConversation).toBe(false)
+    }
+
+    // uma DM só, com os 2 membros do vencedor — o perdedor não deixou nada
+    expect(inMemoryConversationRepository.items).toHaveLength(1)
+    expect(inMemoryConversationMemberRepository.items).toHaveLength(2)
+  })
+
+  it('should not hide an unexpected storage error as if it were the race', async () => {
+    class BrokenRepository extends InMemoryConversationRepository {
+      override async createWithMembers(): Promise<void> {
+        throw new Error('database is down')
+      }
+    }
+
+    inMemoryConversationRepository = new BrokenRepository()
+    sut = new OpenDirectConversationUseCase(
+      inMemoryFriendshipRepository,
+      inMemoryConversationRepository,
+      inMemoryConversationMemberRepository
+    )
+
+    await inMemoryFriendshipRepository.create(
+      makeFriendship({
+        senderId: 'user-1',
+        recipientId: 'friend-1',
+        status: 'accepted',
+      })
+    )
+
+    await expect(
+      sut.execute({ userId: 'user-1', friendId: 'friend-1' })
+    ).rejects.toThrow('database is down')
   })
 })

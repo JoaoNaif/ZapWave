@@ -153,6 +153,49 @@ describe('Open Direct Conversation (e2e)', () => {
     expect(second.body.member.userId).toBe(friend.userId)
   })
 
+  test('[POST] /direct-conversation with simultaneous requests from both friends creates exactly one dm', async () => {
+    const { user, friend } = await createFriends({ accepted: true })
+
+    // sem a constraint do dm_key, os pedidos que não acham DM criariam uma
+    // cada; com ela, quem perde a corrida recebe a DM do vencedor
+    const responses = await Promise.all([
+      ...Array.from({ length: 4 }, () =>
+        user.agent
+          .post('/direct-conversation')
+          .send({ friendId: friend.userId })
+      ),
+      ...Array.from({ length: 4 }, () =>
+        friend.agent
+          .post('/direct-conversation')
+          .send({ friendId: user.userId })
+      ),
+    ])
+
+    expect(responses.every((response) => response.statusCode === 201)).toBe(
+      true
+    )
+
+    // todos acabam na mesma conversa, e só um pedido a criou de fato
+    expect(new Set(responses.map((r) => r.body.conversation.id)).size).toBe(1)
+    expect(responses.filter((r) => r.body.isNewConversation)).toHaveLength(1)
+
+    // cada um recebe o SEU membro
+    responses.forEach((response, index) => {
+      expect(response.body.member.userId).toBe(
+        index < 4 ? user.userId : friend.userId
+      )
+    })
+
+    const dmsOnDatabase = await prisma.conversation.count({
+      where: {
+        type: 'DM',
+        conversationMembers: { some: { userId: user.userId } },
+      },
+    })
+
+    expect(dmsOnDatabase).toBe(1)
+  })
+
   test('[POST] /direct-conversation does not confuse a shared room with the dm', async () => {
     const { user, friend } = await createFriends({ accepted: true })
 

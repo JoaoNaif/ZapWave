@@ -1,10 +1,16 @@
+import { ResourceAlreadyExistsError } from '@/core/errors/err/resource-already-exists-error'
 import { ConversationRepository } from '@/domain/chat/applications/repositories/conversation-repository'
 import { Conversation } from '@/domain/chat/entities/conversation'
 import { Injectable } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 import { PrismaConversationMapper } from '../mappers/prisma-conversation-mapper'
 import { PrismaConversationMemberMapper } from '../mappers/prisma-conversation-member-mapper'
 import { ConversationMember } from '@/domain/chat/entities/conversation-member'
+
+// P2002 = violação de constraint única. Na conversa, a única constraint que
+// pode disparar é a do dm_key: já existe uma DM pra esse par de usuários.
+const UNIQUE_VIOLATION = 'P2002'
 
 @Injectable()
 export class PrismaConversationRepository implements ConversationRepository {
@@ -22,10 +28,6 @@ export class PrismaConversationRepository implements ConversationRepository {
     return PrismaConversationMapper.toDomain(conversation)
   }
 
-  // NOTA(infra): a Conversation aqui não carrega os participantes, então o
-  // dmKey (prisma/schema.prisma) fica sem valor no create() — a proteção
-  // contra 2 DMs concorrentes pro mesmo par continua pendente, ver TODO em
-  // open-direct-conversation.ts.
   async create(conversation: Conversation): Promise<void> {
     const data = PrismaConversationMapper.toPrisma(conversation)
 
@@ -36,25 +38,37 @@ export class PrismaConversationRepository implements ConversationRepository {
 
   // Um create aninhado do Prisma roda numa transação só: se algum membro
   // falhar (ex.: usuário inexistente), a conversa também não é gravada.
+  // Lança ResourceAlreadyExistsError se já existe DM pra esse par (dm_key).
   async createWithMembers(
     conversation: Conversation,
     members: ConversationMember[]
   ): Promise<void> {
-    await this.prisma.conversation.create({
-      data: {
-        ...PrismaConversationMapper.toPrisma(conversation),
-        conversationMembers: {
-          create: members.map((member) => {
-            // o conversationId vem do próprio aninhamento
-            const { conversationId, ...data } =
-              PrismaConversationMemberMapper.toPrisma(member)
-            void conversationId
+    try {
+      await this.prisma.conversation.create({
+        data: {
+          ...PrismaConversationMapper.toPrisma(conversation),
+          conversationMembers: {
+            create: members.map((member) => {
+              // o conversationId vem do próprio aninhamento
+              const { conversationId, ...data } =
+                PrismaConversationMemberMapper.toPrisma(member)
+              void conversationId
 
-            return data
-          }),
+              return data
+            }),
+          },
         },
-      },
-    })
+      })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === UNIQUE_VIOLATION
+      ) {
+        throw new ResourceAlreadyExistsError('direct conversation')
+      }
+
+      throw error
+    }
   }
 
   async save(conversation: Conversation): Promise<void> {
