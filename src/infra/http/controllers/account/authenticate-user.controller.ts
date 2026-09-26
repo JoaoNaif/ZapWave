@@ -4,7 +4,6 @@ import {
   Body,
   Controller,
   HttpCode,
-  NotFoundException,
   Post,
   Res,
   UnauthorizedException,
@@ -16,7 +15,6 @@ import z from 'zod'
 import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
 import { AuthenticateUserUseCase } from '@/domain/accounts/applications/use-cases/authenticate-user'
 import { EnvService } from '@/infra/env/env.service'
-import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 import { WrongCredentialsError } from '@/domain/accounts/applications/errors/wrong-credentials-error'
 
 const authenticateUserBodySchema = z.object({
@@ -56,8 +54,6 @@ export class AuthenticateUserController {
       const error = result.value
 
       switch (error.constructor) {
-        case ResourceNotFoundError:
-          throw new NotFoundException(error.message)
         case WrongCredentialsError:
           throw new UnauthorizedException(error.message)
         default:

@@ -301,6 +301,10 @@ Só faz sentido implementar junto com a tela de conversa.
 ### Login
 Valida credenciais → cria `Device` → emite token ligado ao `Device` → cliente abre
 WebSocket usando esse token.
+**E-mail inexistente e senha errada são indistinguíveis:** mesmo erro (`WrongCredentialsError`
+→ 401, mesmo corpo) e mesmo custo de tempo — quando o e-mail não existe o use-case gera
+um hash descartável, senão a resposta seria muito mais rápida que a de "senha errada" (o
+bcrypt é lento de propósito) e o tempo entregaria quais e-mails têm conta.
 
 ### Logout
 `revokedAt` no `Device` (ou apaga). "Sair de todos": em todos os `Device` do usuário.

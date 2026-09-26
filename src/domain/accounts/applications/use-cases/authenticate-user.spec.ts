@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthenticateUserUseCase } from './authenticate-user'
 import { InMemoryUserRepository } from 'test/repositories/in-memory-user-repository'
 import { InMemoryDevicesRepository } from 'test/repositories/in-memory-devices-repository'
@@ -6,7 +6,6 @@ import { FakeHasher } from 'test/cryptography/fake-hasher'
 import { FakeEncrypter } from 'test/cryptography/fake-encrypter'
 import { makeUser } from 'test/factories/make-user'
 import { WrongCredentialsError } from '../errors/wrong-credentials-error'
-import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 
 let inMemoryUserRepository: InMemoryUserRepository
 let inMemoryDevicesRepository: InMemoryDevicesRepository
@@ -25,6 +24,7 @@ describe('Authenticate User', () => {
     sut = new AuthenticateUserUseCase(
       inMemoryUserRepository,
       inMemoryDevicesRepository,
+      fakeHasher,
       fakeHasher,
       encrypter
     )
@@ -107,8 +107,45 @@ describe('Authenticate User', () => {
     })
 
     expect(result.isLeft()).toBe(true)
-    expect(result.value).toBeInstanceOf(ResourceNotFoundError)
+    expect(result.value).toBeInstanceOf(WrongCredentialsError)
     expect(inMemoryDevicesRepository.items).toHaveLength(0)
+  })
+
+  it('should answer an unknown email exactly like a wrong password', async () => {
+    const user = makeUser({
+      email: 'johndoe@email.com',
+      passwordHash: await fakeHasher.hash('123456'),
+    })
+
+    await inMemoryUserRepository.create(user)
+
+    const unknownEmail = await sut.execute({
+      email: 'unknown@email.com',
+      password: '123456',
+    })
+    const wrongPassword = await sut.execute({
+      email: 'johndoe@email.com',
+      password: 'wrong-password',
+    })
+
+    expect(unknownEmail.value).toBeInstanceOf(WrongCredentialsError)
+    expect(wrongPassword.value).toBeInstanceOf(WrongCredentialsError)
+    expect((unknownEmail.value as Error).message).toBe(
+      (wrongPassword.value as Error).message
+    )
+  })
+
+  it('should still spend the password hashing time when the user does not exist', async () => {
+    const hashSpy = vi.spyOn(fakeHasher, 'hash')
+
+    await sut.execute({
+      email: 'unknown@email.com',
+      password: '123456',
+    })
+
+    // sem isso, "e-mail não existe" responderia bem mais rápido que
+    // "senha errada" e o tempo denunciaria quais e-mails têm conta
+    expect(hashSpy).toHaveBeenCalledWith('123456')
   })
 
   it('should not authenticate with a wrong password', async () => {

@@ -89,6 +89,27 @@ describe('Authenticate User (e2e)', () => {
       deviceName: 'Chrome no Windows',
     })
 
-    expect(response.statusCode).toBe(404)
+    expect(response.statusCode).toBe(401)
+  })
+
+  // Quem chama não pode descobrir se o e-mail tem conta: status e corpo têm
+  // que ser idênticos nos dois casos.
+  test('[POST] /sessions answers an unknown email exactly like a wrong password', async () => {
+    const { email } = await registerUser()
+
+    const wrongPassword = await request(app.getHttpServer())
+      .post('/sessions')
+      .send({ email, password: 'wrong-password', deviceName: null })
+
+    const unknownEmail = await request(app.getHttpServer())
+      .post('/sessions')
+      .send({
+        email: faker.internet.email(),
+        password: 'wrong-password',
+        deviceName: null,
+      })
+
+    expect(unknownEmail.statusCode).toBe(wrongPassword.statusCode)
+    expect(unknownEmail.body).toEqual(wrongPassword.body)
   })
 })
