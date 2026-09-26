@@ -306,6 +306,12 @@ WebSocket usando esse token.
 um hash descartável, senão a resposta seria muito mais rápida que a de "senha errada" (o
 bcrypt é lento de propósito) e o tempo entregaria quais e-mails têm conta.
 
+### Sessão atual (`GET /me`)
+O front chama ao abrir ou recarregar a página. Devolve o usuário logado (`id`, `username`,
+`displayName`, `email`) e o `deviceId` do cookie usado — é com esse `deviceId` que o front
+abre o WebSocket ([doc 05](./05-websocket.md) §1) e revoga a própria sessão. **401** = não
+está logado: sem cookie, cookie expirado (24h) ou device revogado.
+
 ### Logout
 `revokedAt` no `Device` (ou apaga). "Sair de todos": em todos os `Device` do usuário.
 Revogar vale **na hora, no HTTP e no WebSocket**: o cookie daquele device passa a levar 401
@@ -313,6 +319,10 @@ e o socket aberto é fechado com 4401. Outras sessões do mesmo usuário não s�
 Como funciona (cache no Redis, `deviceId` dentro do JWT): [doc 05](./05-websocket.md) §9.
 
 ### Adicionar amigo
+`A` acha `B` por `GET /users/:username` (busca **exata**, exige login, 30 por minuto por IP;
+devolve só `id`, `username` e `displayName` — nunca e-mail) e usa o `id` no pedido. A busca
+não é parcial de propósito: parcial deixaria qualquer um listar os usuários digitando "a",
+"b", "c"... Se um dia precisar de autocomplete, entra com paginação e limite próprio.
 `A` envia pedido → `Friendship(status=pending, sender=A, recipient=B)` + `Notification(B, friend_request)`.
 `B` aceita → `Friendship.status=accepted` + `Notification(A, friend_accepted)`.
 `B` recusa → `Friendship` removida (ou `status` próprio) — **em aberto**: apagar vs marcar.

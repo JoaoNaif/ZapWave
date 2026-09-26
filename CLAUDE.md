@@ -31,7 +31,8 @@ coberta, resolver e **escrever a resposta no doc**.
 - **WebSocket** (`@nestjs/platform-ws` + `ws`) — transporte do chat
 - **Vitest** — testes unitários (`src/**/*.spec.ts`, `test/**/*.spec.ts`) e e2e (`src/**/*.e2e-spec.ts`)
 - Segurança: `helmet`, CORS restrito (`CORS_ORIGINS`, hoje só localhost), rate limit com
-  `@nestjs/throttler` (`RATE_LIMIT_ENABLED`; login 10/min e cadastro 5/min por IP)
+  `@nestjs/throttler` (`RATE_LIMIT_ENABLED`; login 10/min, cadastro 5/min e busca de
+  usuário 30/min por IP)
 - Node 22 (`.nvmrc`)
 
 ## Comandos
@@ -137,7 +138,9 @@ mais os repositórios e os de criptografia. Adapters reais: `RedisMessageStream`
 
 Backend funcional de ponta a ponta, ainda sem frontend:
 
-- **Contextos com código:** `accounts` (cadastro, login com device, revogar device), `social`
+- **Contextos com código:** `accounts` (cadastro, login com device, `GET /me`, busca de
+  usuário por username exato, revogar device; login não distingue e-mail inexistente de
+  senha errada), `social`
   (pedido de amizade, aceitar/recusar), `rooms` (criar, convidar, aceitar convite, sair,
   remover membro), `chat` (DM, enviar mensagem, histórico paginado, marcar como lida, ack
   de entrega, presença), `notification` (buscar, marcar lida, criar via eventos de domínio).

@@ -1,8 +1,10 @@
 import { INestApplication } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
 import { faker } from '@faker-js/faker'
 import { AppModule } from '@/infra/app.module'
+import { PrismaService } from '@/infra/database/prisma/prisma.service'
 import { EnvService } from '@/infra/env/env.service'
 import { configureApp } from '@/infra/setup-app'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
@@ -16,6 +18,8 @@ vi.hoisted(() => {
 
 describe('Hardening (e2e)', () => {
   let app: INestApplication
+  let prisma: PrismaService
+  let jwt: JwtService
   let allowedOrigin: string
 
   beforeAll(async () => {
@@ -25,6 +29,8 @@ describe('Hardening (e2e)', () => {
 
     app = moduleRef.createNestApplication()
     configureApp(app)
+    prisma = moduleRef.get(PrismaService)
+    jwt = moduleRef.get(JwtService)
     await app.init()
 
     allowedOrigin = app.get(EnvService).get('CORS_ORIGINS')[0]
@@ -100,6 +106,35 @@ describe('Hardening (e2e)', () => {
       }
 
       const blocked = await signUp()
+
+      expect(blocked.statusCode).toBe(429)
+    })
+
+    test('blocks username lookups after 30 per minute', async () => {
+      // /register e /sessions já têm o limite esgotado neste arquivo, então a
+      // sessão é montada direto no banco, sem passar por essas rotas
+      const user = await prisma.user.create({
+        data: {
+          username: faker.string.alphanumeric(12),
+          displayName: 'Buscador',
+          email: faker.internet.email(),
+          passwordHash: 'not-used',
+        },
+      })
+      const device = await prisma.device.create({ data: { userId: user.id } })
+      const token = await jwt.signAsync({ sub: user.id, deviceId: device.id })
+
+      const lookup = () =>
+        request(app.getHttpServer())
+          .get('/users/ninguem_com_esse_nome')
+          .set('Authorization', `Bearer ${token}`)
+
+      for (let i = 0; i < 30; i++) {
+        const response = await lookup()
+        expect(response.statusCode).toBe(404)
+      }
+
+      const blocked = await lookup()
 
       expect(blocked.statusCode).toBe(429)
     })

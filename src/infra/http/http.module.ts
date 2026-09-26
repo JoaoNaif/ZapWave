@@ -6,10 +6,14 @@ import { EnvModule } from '../env/env.module'
 import { AuthenticateUserController } from './controllers/account/authenticate-user.controller'
 import { RegisterUserController } from './controllers/account/register-user.controller'
 import { RevokeDeviceController } from './controllers/account/revoke-device.controller'
+import { FetchCurrentUserController } from './controllers/account/fetch-current-user.controller'
+import { FetchUserByUsernameController } from './controllers/account/fetch-user-by-username.controller'
 import { HealthController } from './controllers/health.controller'
 import { AuthenticateUserUseCase } from '@/domain/accounts/applications/use-cases/authenticate-user'
 import { RegisterUserUseCase } from '@/domain/accounts/applications/use-cases/register-user'
 import { RevokeDeviceUseCase } from '@/domain/accounts/applications/use-cases/revoke-device'
+import { FetchCurrentUserUseCase } from '@/domain/accounts/applications/use-cases/fetch-current-user'
+import { FetchUserByUsernameUseCase } from '@/domain/accounts/applications/use-cases/fetch-user-by-username'
 import { WebsocketModule } from '../websocket/websocket.module'
 import { SendFriendInviteController } from './controllers/social/send-friend-invite.controller'
 import { AcceptController } from './controllers/social/accept.controller'
@@ -58,6 +62,8 @@ import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch
     AuthenticateUserController,
     RegisterUserController,
     RevokeDeviceController,
+    FetchCurrentUserController,
+    FetchUserByUsernameController,
     SendFriendInviteController,
     AcceptController,
     DeclineController,
@@ -80,6 +86,8 @@ import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch
     AuthenticateUserUseCase,
     RegisterUserUseCase,
     RevokeDeviceUseCase,
+    FetchCurrentUserUseCase,
+    FetchUserByUsernameUseCase,
     SendFriendInviteUseCase,
     AcceptUseCase,
     DeclineUseCase,
