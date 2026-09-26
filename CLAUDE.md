@@ -134,9 +134,24 @@ mais os repositórios e os de criptografia. Adapters reais: `RedisMessageStream`
   - Evento de domínio é assíncrono (handlers disparam sem `await`): em teste que depende
     dele (ex.: notificações), faça polling com timeout em vez de checar na hora.
 
+## Frontend
+
+- Fica em `../Front-ZapWave` (repo `JoaoNaif/ZapWave-Front`, React + Vite + TypeScript).
+  Acessível nesta sessão e atualizado com `git pull --ff-only` ao abrir (hook em
+  `.claude/settings.local.json`, fora do git por ter caminho absoluto da máquina).
+- O front consome o contrato de [`docs/CONTEXTO-FRONTEND.md`](./docs/CONTEXTO-FRONTEND.md) e
+  o `CLAUDE.md` dele tem uma **cópia** desse contrato. **Ao mudar rota, DTO, status HTTP, frame
+  do WS ou close code**, atualizar esse doc e avisar que a cópia no front ficou defasada.
+- As listagens de leitura pendentes (ver "Pendências") saem **da tela do front que vai usá-las**:
+  antes de desenhar um endpoint, olhar a tela em `../Front-ZapWave/src` para ver o que ela
+  precisa (campos, ordenação, paginação).
+- **Não alterar arquivos do front a partir daqui sem pedir.** O `CLAUDE.md` do front não é
+  importado automaticamente (duplicaria o contrato); leia-o sob demanda.
+- Em divergência entre o contrato copiado no front e o código do back, **o código do back manda**.
+
 ## Estado atual
 
-Backend funcional de ponta a ponta, ainda sem frontend:
+Backend funcional de ponta a ponta; o frontend está sendo construído em `../Front-ZapWave`:
 
 - **Contextos com código:** `accounts` (cadastro, login com device, `GET /me`, busca de
   usuário por username exato, revogar device; login não distingue e-mail inexistente de

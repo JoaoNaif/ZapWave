@@ -21,3 +21,6 @@ npm-debug.log*
 # prisma
 prisma/*.db
 prisma/*.db-journal
+
+# Claude Code (config local por máquina)
+.claude/settings.local.json
