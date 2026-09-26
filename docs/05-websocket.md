@@ -25,10 +25,19 @@ falhou.
 **Por que query string e não primeira mensagem:** dá pra rejeitar a conexão **antes** dela
 ser aceita, sem gastar um round-trip aceitando o socket pra só depois fechar.
 
+**Checagem de `Origin`:** o CORS **não vale pra WebSocket** — qualquer página aberta no
+navegador do usuário consegue abrir um WS pro nosso servidor, e o navegador manda o cookie
+`access_token` junto (o chamado *cross-site WebSocket hijacking*). Quem barra isso é o
+header `Origin`, que o navegador preenche sozinho e a página não consegue forjar. O
+`ws-auth.ts` compara com a mesma lista do CORS (`CORS_ORIGINS`, hoje só localhost): `Origin`
+fora da lista = recusado, antes mesmo de olhar o token. **Sem `Origin`** (curl, app nativo,
+teste) passa — esse não é o risco, e continua precisando de token válido.
+
 ## 2. Códigos de fechamento
 
 `4401` para qualquer falha de autenticação/autorização do handshake (token ausente ou
-inválido, `deviceId` ausente, device de outro usuário, device revogado). Faixa 4000-4999 é
+inválido, `deviceId` ausente, device de outro usuário, device revogado, `Origin` não
+permitido). Faixa 4000-4999 é
 de uso privado por aplicação (RFC 6455) — não colide com os códigos 1000-2999 reservados
 pro protocolo.
 
@@ -90,12 +99,18 @@ Fluxo da conexão:
 - **Não existe "marcar offline" no `close`.** A ausência de heartbeat é o que expira
   sozinho — combina com multi-device: se um usuário tem 2 conexões e fecha uma, a outra
   continua mandando heartbeat, e ele nunca aparenta ficar offline por engano.
+- **Conexão morta é derrubada.** Cada ping marca a conexão como "esperando pong"; se no
+  ping seguinte (20s depois) o `pong` não chegou, o servidor chama `socket.terminate()`.
+  Sem isso, um celular que perdeu a rede sem fechar o socket (o `close` nunca chega) ficava
+  pendurado pra sempre — e cada conexão pendurada segura um `Readable`, um pipeline e uma
+  conexão Redis dedicada (ver §8). O `terminate()` dispara o `close`, e a cadeia de
+  limpeza do §7 se desfaz sozinha.
 
 Presença é por **usuário**, não por device (diferente do inbox/PEL, que é por device) —
 "fulano está online" não depende de qual aparelho especificamente. `GET /presence/:userId`
 expõe isso pra HTTP.
 
-## 6. Onde o backpressure vira palpável
+## 7. Onde o backpressure vira palpável
 
 ```
 RedisMessageStream.subscribe/replayFrom (AsyncIterable)
@@ -118,7 +133,23 @@ propaga pros generators do `MessageStream`, fechando a conexão Redis duplicada
 (`redis.duplicate()`, ver [06](./06-redis-streams.md) §6). A cadeia inteira se desfaz
 sozinha a partir de um único evento.
 
-## 7. O que fica para depois
+## 8. Limite de escala: uma conexão Redis por device conectado
+
+Cada device conectado mantém **uma conexão Redis própria e bloqueada** num `XREADGROUP
+BLOCK` (`redis.duplicate()`, ver [06](./06-redis-streams.md) §6) — não dá pra dividir uma
+conexão entre leitores bloqueantes, porque o comando ocupa a conexão inteira até
+responder. Consequência: **N devices online = N conexões Redis abertas**. O Redis aceita
+milhares (`maxclients`, padrão 10.000), então pro escopo do projeto não é problema — mas é
+o primeiro teto que aparece se o número de conexões simultâneas crescer.
+
+Se um dia for preciso passar disso, os caminhos são: um único leitor por processo fazendo
+`XREADGROUP` em várias chaves de uma vez e distribuindo pros sockets (troca conexões por
+código de roteamento), ou Pub/Sub por cima do Redis Streams (só o "acorda" vai por
+Pub/Sub, a leitura de fato continua sendo `XREADGROUP` sem `BLOCK`). **Decisão por ora:**
+não fazer nada — a simplicidade de "1 device = 1 pipeline = 1 conexão" é justamente o que
+deixa o backpressure por device fácil de enxergar.
+
+## 9. O que fica para depois
 
 - Multi-tab / múltiplas conexões pro mesmo device (ver [06](./06-redis-streams.md) §1).
 - "Fulano está digitando" — mesmo raciocínio do §5 (EventEmitter, evento pontual), ainda

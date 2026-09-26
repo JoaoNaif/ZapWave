@@ -52,6 +52,9 @@ model Friendship {
   sender    User @relation("SenderFriendships", fields: [senderId], references: [id], onDelete: Cascade)
   recipient User @relation("RecipientFriendships", fields: [recipientId], references: [id], onDelete: Cascade)
 
+  // busca por par (findBySenderIdAndRecipientId) e pedidos recebidos
+  @@index([senderId, recipientId])
+  @@index([recipientId])
   @@map("friendships")
 }
 
@@ -100,6 +103,8 @@ model ConversationMember {
   lastReadMessage Message? @relation(fields: [lastReadMessageId], references: [id], onDelete: SetNull)
 
   @@unique([conversationId, userId])
+  // "minhas conversas": a unique acima começa por conversationId e não serve
+  @@index([userId])
   @@map("conversations_members")
 }
 
@@ -120,6 +125,8 @@ model Message {
   // outra mensagem. NULLs são distintos no Postgres, então mensagens sem
   // clientMessageId não conflitam entre si.
   @@unique([conversationId, senderId, clientMessageId])
+  // paginação do histórico: where conversationId + id < cursor, order by id desc
+  @@index([conversationId, id])
   @@map("messages")
 }
 
@@ -135,6 +142,8 @@ model Device {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   resumeCursor Message? @relation(fields: [resumeCursorId], references: [id], onDelete: SetNull)
 
+  // devices de um usuário (listagem e entrega da mensagem a todos os devices)
+  @@index([userId])
   @@map("devices")
 }
 
@@ -161,6 +170,8 @@ model RoomInvite {
   // um convite por (sala, convidado): segura dois pedidos simultâneos que
   // passariam juntos pela checagem do use-case (invite-to-room)
   @@unique([conversationId, inviteeId])
+  // convites pendentes de um convidado
+  @@index([inviteeId, status])
   @@map("rooms_invites")
 }
 
@@ -174,5 +185,7 @@ model Notification {
 
   recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
+  // não lidas de um usuário, da mais nova pra mais antiga
+  @@index([recipientId, createdAt])
   @@map("notifications")
 }

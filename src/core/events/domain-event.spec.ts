@@ -50,4 +50,46 @@ describe('domain events', () => {
     // Espera que a lista de evento esteja vazia
     expect(aggregate.domainEvents).toHaveLength(0)
   })
+
+  it('should not let a failing async handler crash the process', async () => {
+    const onHandlerError = vi.fn()
+    const previous = DomainEvents.onHandlerError
+    DomainEvents.onHandlerError = onHandlerError
+    DomainEvents.clearHandlers()
+
+    const failure = new Error('database is down')
+    DomainEvents.register(async () => {
+      throw failure
+    }, CustomAggregateCreated.name)
+
+    const aggregate = CustomAggregate.create()
+    DomainEvents.dispatchEventsForAggregate(aggregate.id)
+
+    // a rejeição é tratada no próximo tick da fila de promises
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(onHandlerError).toHaveBeenCalledWith(failure, expect.anything())
+
+    DomainEvents.onHandlerError = previous
+    DomainEvents.clearHandlers()
+  })
+
+  it('should also report a handler that throws synchronously', () => {
+    const onHandlerError = vi.fn()
+    const previous = DomainEvents.onHandlerError
+    DomainEvents.onHandlerError = onHandlerError
+    DomainEvents.clearHandlers()
+
+    DomainEvents.register(() => {
+      throw new Error('boom')
+    }, CustomAggregateCreated.name)
+
+    const aggregate = CustomAggregate.create()
+    DomainEvents.dispatchEventsForAggregate(aggregate.id)
+
+    expect(onHandlerError).toHaveBeenCalledTimes(1)
+
+    DomainEvents.onHandlerError = previous
+    DomainEvents.clearHandlers()
+  })
 })

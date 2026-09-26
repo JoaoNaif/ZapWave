@@ -10,6 +10,7 @@ import {
   Post,
   UsePipes,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import z from 'zod'
 import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
 
@@ -27,6 +28,8 @@ type RegisterUserBodySchema = z.infer<typeof registerUserBodySchema>
 export class RegisterUserController {
   constructor(private registerUser: RegisterUserUseCase) {}
 
+  // 5 cadastros por minuto por IP: evita criação de contas em massa
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('/register')
   @HttpCode(201)
   @UsePipes(new ZodValidationPipe(registerUserBodySchema))

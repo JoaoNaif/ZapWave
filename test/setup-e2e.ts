@@ -7,6 +7,11 @@ import { afterAll, beforeAll } from 'vitest'
 
 config({ path: '.env', override: false })
 
+// Os e2e fazem dezenas de cadastros/logins seguidos do mesmo IP: com o limite
+// de requisições ligado quase tudo daria 429. O arquivo que testa o limite
+// religa isso antes de importar o app (ver hardening.e2e-spec.ts).
+process.env.RATE_LIMIT_ENABLED = 'false'
+
 const schemaId = randomUUID()
 
 // Pool pequeno por arquivo: o padrão do Prisma é (CPUs * 2 + 1) conexões, e

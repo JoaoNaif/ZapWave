@@ -2,13 +2,21 @@ import { AggregateRoot } from '../entities/aggregate-root'
 import { UniqueEntityId } from '../entities/unique-entity-id'
 import { DomainEvent } from './domain-event'
 
-type DomainEventCallback = (event: any) => void
+type DomainEventCallback = (event: any) => unknown
 
 export class DomainEvents {
   private static handlersMap: Record<string, DomainEventCallback[]> = {}
   private static markedAggregates: AggregateRoot<any>[] = []
 
   public static shouldRun = true
+
+  // Um handler é disparado sem ninguém esperando por ele. Se ele falhar (ex.:
+  // banco fora do ar ao criar uma notificação), a promise rejeitada não tem
+  // dono e o Node derruba o processo inteiro — então o erro é capturado aqui e
+  // entregue a este gancho. A infra troca por um logger de verdade.
+  public static onHandlerError: (error: unknown, event: DomainEvent) => void = (
+    error
+  ) => console.error('domain event handler failed:', error)
 
   public static markAggregateForDispatch(aggregate: AggregateRoot<any>) {
     const aggregateFound = !!this.findMarkedAggregateByID(aggregate.id)
@@ -80,7 +88,13 @@ export class DomainEvents {
       const handlers = this.handlersMap[eventClassName]
 
       for (const handler of handlers) {
-        handler(event)
+        try {
+          Promise.resolve(handler(event)).catch((error) =>
+            this.onHandlerError(error, event)
+          )
+        } catch (error) {
+          this.onHandlerError(error, event)
+        }
       }
     }
   }

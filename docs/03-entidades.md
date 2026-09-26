@@ -244,8 +244,43 @@ fase posterior.
 | Amizade | Enviar pedido, **Aceitar / recusar** pedido |
 | Sala | Criar sala, Convidar (admin), Remover membro (admin), **Sair da sala** |
 | Conversa | Conversar no privado (DM), Conversar em sala |
-| Tempo real | **Indicador de digitação**, **Presença / visto por último**, **Recibos ✓ (entregue) / ✓✓ (lida)**, **Contador de não lidas**, **Reconexão / resume** |
+| Tempo real | **Indicador de digitação**, **Presença / visto por último**, **Recibos ✓ (entregue) / ✓✓ (lida)**, **Reconexão / resume** |
 | Histórico | Paginação / scroll infinito (stream — [doc 01](./01-streams.md), Lugar 2) |
+
+### Pendentes (decididas, ainda sem implementação)
+
+**Contador de não lidas.** O dado já existe (`ConversationMember.lastReadMessageId`,
+atualizado pelo `mark-conversation-read`), mas nada expõe o número. Só faz sentido junto
+com a listagem de conversas (abaixo): é ela que vai mostrar o contador de cada uma.
+
+**Listagens de leitura.** O que o app já **escreve** está completo (criar, convidar,
+aceitar, enviar...), mas quase nada permite **ler** a lista de volta. Isso é proposital:
+o formato de cada listagem (quais campos, ordenação, paginação, o que vem embutido) depende
+do que cada tela do frontend precisa, então elas serão definidas **junto com o frontend**,
+tela por tela. São use-cases novos — não exigem mexer nos use-cases que já existem.
+
+| Listagem | O que já existe | O que falta |
+|----------|-----------------|-------------|
+| Minhas conversas (DMs + salas) | `ConversationMemberRepository.findManyByUserId` | use-case + controller; decidir o que cada item traz (nome da sala ou o outro participante da DM, última mensagem, contador de não lidas) |
+| Meus amigos | nada (o repositório só busca por id e por par) | método no repositório (`ACCEPTED`, nas duas pontas), use-case, controller |
+| Pedidos de amizade pendentes | nada | idem; decidir se lista só os recebidos ou também os enviados |
+| Convites de sala pendentes (do convidado) | `RoomInviteRepository.findManyByIviteeIdWithStausPending` | use-case + controller. **Sem isso o convidado não tem como descobrir o `inviteId`** que o `accept-room-invite` exige — a notificação hoje só avisa que houve convite |
+| Membros de uma sala | `ConversationMemberRepository.findManyByConversationId` | use-case + controller (só quem é membro pode ver) |
+| Meus devices | `DevicesRepository.findManyByUserId` | use-case + controller; é dele que o usuário pega o `deviceId` pra usar no `revoke-device` |
+
+**Recusar convite de sala.** O enum `StatusRoomInvite` já tem `DECLINED` e o fluxo de
+"Convidar para sala" (§7) descreve a recusa, mas não existe use-case: hoje o convidado só
+consegue aceitar. Falta o `decline-room-invite` (só o próprio convidado, só se `PENDING`).
+
+**Texto das notificações.** Os subscribers montam o `content` com o **id cru** de quem
+agiu ("`<uuid>` te enviou um pedido de amizade"). Serve pra provar o fluxo, não pra tela:
+quando o frontend existir, ou o texto passa a usar o `displayName`, ou a notificação
+guarda o id (e o tipo) e o front monta a frase.
+
+**Revogar sessão não corta o acesso HTTP.** `revoke-device` marca o `Device` como
+revogado, e o WebSocket e o ack respeitam isso — mas o JWT do cookie continua válido por
+até 24h e o `JwtStrategy` só lê o `sub`, sem olhar o device. Ou seja: revogar impede novas
+conexões WS, não impede o mesmo cookie de chamar a API HTTP. Solução em análise.
 
 ### Fase posterior
 

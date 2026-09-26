@@ -17,6 +17,8 @@ Toda a documentação conceitual e as decisões travadas ficam em [`docs/`](./do
 | [`docs/02-redis.md`](./docs/02-redis.md) | Redis vs Postgres, por que Redis é a peça central |
 | [`docs/03-entidades.md`](./docs/03-entidades.md) | entidades, campos, o que é Postgres vs Redis, fluxos |
 | [`docs/04-arquitetura.md`](./docs/04-arquitetura.md) | camadas, regra de dependência, árvore de pastas, ports × adapters × fakes |
+| [`docs/05-websocket.md`](./docs/05-websocket.md) | handshake (cookie + `deviceId` + `Origin`), close codes, heartbeat/presença, backpressure até o socket, limite de escala |
+| [`docs/06-redis-streams.md`](./docs/06-redis-streams.md) | como o `RedisMessageStream` usa `XADD`/`XREADGROUP`/`XACK`/`XAUTOCLAIM`, consumer group, `MAXLEN` |
 
 Se uma decisão de conceito não estiver clara, o `.md` do assunto manda. Se não estiver
 coberta, resolver e **escrever a resposta no doc**.
@@ -27,7 +29,9 @@ coberta, resolver e **escrever a resposta no doc**.
 - **Prisma** / PostgreSQL — fonte da verdade durável
 - **Redis** (ioredis) — tempo real: presença, filas de mensagens (Redis Streams), contadores
 - **WebSocket** (`@nestjs/platform-ws` + `ws`) — transporte do chat
-- **Vitest** — testes unitários (`src/**/*.spec.ts`) e e2e (`test/**/*.e2e-spec.ts`)
+- **Vitest** — testes unitários (`src/**/*.spec.ts`, `test/**/*.spec.ts`) e e2e (`src/**/*.e2e-spec.ts`)
+- Segurança: `helmet`, CORS restrito (`CORS_ORIGINS`, hoje só localhost), rate limit com
+  `@nestjs/throttler` (`RATE_LIMIT_ENABLED`; login 10/min e cadastro 5/min por IP)
 - Node 22 (`.nvmrc`)
 
 ## Comandos
@@ -36,7 +40,7 @@ coberta, resolver e **escrever a resposta no doc**.
 |---------|-----------|
 | `npm test` | testes unitários (Vitest, `src/**/*.spec.ts`) |
 | `npm run test:watch` | Vitest em watch |
-| `npm run test:e2e` | testes e2e |
+| `npm run test:e2e` | testes e2e (precisam de Postgres + Redis no ar: `npm run services:up`) |
 | `npm run lint` | ESLint com `--fix` (roda em `src` e `test`) |
 | `npm run format` | Prettier |
 | `npm run start:dev` | API com hot reload (`GET :3333/health` → `{ "status": "ok" }`) |
@@ -44,6 +48,14 @@ coberta, resolver e **escrever a resposta no doc**.
 | `npm run prisma:generate` / `prisma:migrate` / `prisma:studio` | Prisma |
 
 Rodar **um arquivo de teste**: `npx vitest run src/domain/accounts/applications/use-cases/register-user.spec.ts`
+(e2e: `npx vitest run --config vitest.config.e2e.ts src/infra/http/hardening.e2e-spec.ts`)
+
+Migrations: `npm run prisma:migrate` (precisa do Postgres no ar). Sem banco, dá pra gerar o
+SQL offline com
+`prisma migrate diff --from-schema-datamodel <schema antigo> --to-schema-datamodel prisma/schema.prisma --script`
+e salvar em `prisma/migrations/<timestamp>_<nome>/migration.sql`. No Windows,
+`prisma generate` falha com EPERM se algum processo node (ex.: `nest start`) estiver
+segurando a DLL do engine — feche-o antes.
 
 ## Arquitetura — regra de dependência (inviolável)
 
@@ -69,7 +81,11 @@ o experimento de streams (EventEmitter vs stream).
 - `application/mappers/`, `application/dtos/`, `application/errors/`.
 
 Contextos do domínio (por assunto, não por tipo técnico): `accounts`, `social`, `chat`,
-`rooms`, `notifications`. Hoje só `accounts` existe.
+`rooms`, `notification` (singular, como está no código). Todos já existem.
+
+Ports que o `infra` implementa e o `test` substitui por fakes: `MessageStream` e `Presence`
+(`chat/applications/gateways/`), `SessionGateway` (`accounts/applications/gateways/`),
+mais os repositórios e os de criptografia.
 
 > Nota: o `docs/04` diz `enterprise/` + `application/`. O código atual usa `entities/` +
 > `applications/` (plural). Seguir o padrão **já existente no código** ao adicionar arquivos
@@ -98,14 +114,45 @@ Contextos do domínio (por assunto, não por tipo técnico): `accounts`, `social
 - Nome: `describe('Register User', ...)`, `it('should be able to ...', ...)`.
 - A instância sob teste chama-se `sut`. Montada em `beforeEach`.
 - Sem banco/rede em teste unitário: usar os **fakes e in-memory** de `test/`:
-  - `test/repositories/in-memory-user-repository.ts`
+  - `test/repositories/in-memory-*-repository.ts` — um por repositório (user, devices,
+    friendship, conversation, conversation-member, message, room-invite, notification)
+  - `test/gateways/` — `in-memory-message-stream.ts`, `fake-presence.ts`, `fake-session-gateway.ts`
   - `test/cryptography/fake-hasher.ts` (implementa `HashGenerator` + `HashCompare`; `hash` = `plain + '-hashed'`)
   - `test/cryptography/fake-encrypter.ts` (`encrypt` = `JSON.stringify(payload)`)
-  - `test/factories/make-user.ts` — `makeUser(override?, id?)` com `@faker-js/faker`
+  - `test/factories/make-*.ts` — `makeUser(override?, id?)` etc., com `@faker-js/faker`
 - Cada novo port precisa de um fake/in-memory em `test/` para os use-cases continuarem testáveis sem `infra`.
+- **e2e** (`*.e2e-spec.ts`, ao lado do controller/adapter que testam): sobem o `AppModule`
+  inteiro contra Postgres + Redis reais. Cada arquivo roda num schema Postgres próprio
+  (`test/setup-e2e.ts` cria, migra e dropa), então arquivos são independentes.
+  - Monte o app com `configureApp(app)` (`src/infra/setup-app.ts`) — é o mesmo setup do
+    `main.ts` (helmet, cookie-parser, CORS, `WsAdapter`). Sem o `WsAdapter` o Nest tenta
+    socket.io e derruba o processo.
+  - O setup dos e2e desliga o rate limit (`RATE_LIMIT_ENABLED=false`); só o
+    `hardening.e2e-spec.ts` o religa (via `vi.hoisted`, antes de importar o `AppModule`).
+  - Evento de domínio é assíncrono (handlers disparam sem `await`): em teste que depende
+    dele (ex.: notificações), faça polling com timeout em vez de checar na hora.
 
 ## Estado atual
 
-Só o contexto `accounts` tem código: entidade `User`, use-cases `RegisterUserUseCase` e
-`AuthenticateUserUseCase`. `infra/` tem o esqueleto Nest (health, env, prisma service,
-redis service) — sem models Prisma, sem controllers de conta, sem WebSocket ainda.
+Backend funcional de ponta a ponta, ainda sem frontend:
+
+- **Contextos com código:** `accounts` (cadastro, login com device, revogar device), `social`
+  (pedido de amizade, aceitar/recusar), `rooms` (criar, convidar, aceitar convite, sair,
+  remover membro), `chat` (DM, enviar mensagem, histórico paginado, marcar como lida, ack
+  de entrega, presença), `notification` (buscar, marcar lida, criar via eventos de domínio).
+- **Infra:** Prisma com todos os models e migrations (repositórios Prisma para tudo),
+  Redis (`RedisMessageStream` = 1 Redis Stream por device, `RedisPresence`), WebSocket
+  (`ChatGateway` em `/ws`) com o pipeline de Node streams (`Readable` → `Transform` →
+  `Writable` via `pipeline()`), heartbeat com `terminate()` de conexão morta, e o
+  `NotificationModule` ligando os eventos de domínio ao `SendNotificationUseCase`.
+- **Escritas atômicas:** DM (`dmKey` unique), criação de sala e aceite de convite gravam
+  tudo-ou-nada; convite tem unique `(conversationId, inviteeId)`.
+- **Endurecimento feito:** helmet, CORS só localhost, rate limit, checagem de `Origin` no WS,
+  índices nas consultas principais. CI **não** foi implementado (decisão do usuário).
+
+**Pendências conhecidas** (detalhes em [`docs/03`](./docs/03-entidades.md) §6):
+listagens de leitura (minhas conversas, amigos, pedidos e convites pendentes, membros da sala,
+meus devices) e o contador de não lidas — serão definidos junto com o frontend; falta o
+`decline-room-invite`; revogar device não invalida o JWT no HTTP (só no WS/ack); texto das
+notificações usa id cru; indicador de digitação ainda não existe; `NoopSessionGateway` é o
+adapter atual de `SessionGateway`.

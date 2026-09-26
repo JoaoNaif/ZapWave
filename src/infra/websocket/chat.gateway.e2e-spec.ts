@@ -1,11 +1,11 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { WsAdapter } from '@nestjs/platform-ws'
 import request from 'supertest'
-import cookieParser from 'cookie-parser'
 import { faker } from '@faker-js/faker'
 import WebSocket from 'ws'
 import { AppModule } from '@/infra/app.module'
+import { EnvService } from '@/infra/env/env.service'
+import { configureApp } from '@/infra/setup-app'
 import { PrismaService } from '@/infra/database/prisma/prisma.service'
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest'
 
@@ -25,8 +25,7 @@ describe('Chat Gateway (e2e)', () => {
     }).compile()
 
     app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useWebSocketAdapter(new WsAdapter(app))
+    configureApp(app)
     prisma = moduleRef.get(PrismaService)
 
     await app.init()
@@ -177,6 +176,33 @@ describe('Chat Gateway (e2e)', () => {
     const code = await waitForClose(socket)
 
     expect(code).toBe(4401)
+  })
+
+  test('closes with 4401 when the browser Origin is not in CORS_ORIGINS, even with a valid session', async () => {
+    const owner = await createSession()
+
+    const socket = new WebSocket(`${wsUrl}/ws?deviceId=${owner.deviceId}`, {
+      headers: { cookie: owner.cookie, origin: 'http://evil.example.com' },
+    })
+    openSockets.push(socket)
+
+    const code = await waitForClose(socket)
+
+    expect(code).toBe(4401)
+  })
+
+  test('accepts the connection when the browser Origin is in CORS_ORIGINS', async () => {
+    const owner = await createSession()
+    const [allowedOrigin] = app.get(EnvService).get('CORS_ORIGINS')
+
+    const socket = new WebSocket(`${wsUrl}/ws?deviceId=${owner.deviceId}`, {
+      headers: { cookie: owner.cookie, origin: allowedOrigin },
+    })
+    openSockets.push(socket)
+
+    await waitForOpen(socket)
+
+    expect(socket.readyState).toBe(WebSocket.OPEN)
   })
 
   test('delivers a message sent over HTTP to the connected device in real time', async () => {

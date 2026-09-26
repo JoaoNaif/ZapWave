@@ -10,6 +10,7 @@ import {
   UnauthorizedException,
   UsePipes,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { Response } from 'express'
 import z from 'zod'
 import { ZodValidationPipe } from '@/infra/http/pipes/zod-validation-pipe'
@@ -34,6 +35,8 @@ export class AuthenticateUserController {
     private env: EnvService
   ) {}
 
+  // 10 tentativas por minuto por IP: trava tentativa de adivinhar senha
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('/sessions')
   @HttpCode(200)
   @UsePipes(new ZodValidationPipe(authenticateUserBodySchema))
