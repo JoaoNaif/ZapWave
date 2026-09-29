@@ -28,6 +28,22 @@ export class InMemoryConversationMemberRepository implements ConversationMemberR
     )
   }
 
+  async countManyByConversationIds(
+    conversationIds: string[]
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>()
+
+    for (const item of this.items) {
+      const conversationId = item.conversationId.toString()
+
+      if (!conversationIds.includes(conversationId)) continue
+
+      counts.set(conversationId, (counts.get(conversationId) ?? 0) + 1)
+    }
+
+    return counts
+  }
+
   async findByUserWithConversationId(
     userId: string,
     conversationId: string

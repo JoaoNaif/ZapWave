@@ -262,6 +262,7 @@ tela por tela. São use-cases novos — não exigem mexer nos use-cases que já 
 
 | Listagem | O que já existe | O que falta |
 |----------|-----------------|-------------|
+| ~~Meus grupos~~ | **feito**: `GET /rooms` (`FetchMyRoomsUseCase`, contexto `rooms`) — só `type = room` em que o usuário é membro; cada item traz `id`, `name`, `role` (de quem pediu), `memberCount` e `lastMessageAt`; ordena pela última atividade (`lastMessageAt`, ou `createdAt` se a sala não tem mensagem). Sem paginação | — |
 | Minhas conversas (DMs + salas) | `ConversationMemberRepository.findManyByUserId` | use-case + controller; decidir o que cada item traz (nome da sala ou o outro participante da DM, última mensagem, contador de não lidas) |
 | ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence) e `lastMessageAt` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
 | ~~Pedidos de amizade pendentes~~ | **feito (só os recebidos)**: `GET /friend-requests` (`FetchFriendRequestsUseCase`) — cada item traz `friendshipId` (o que o accept/decline exigem), `sender` (`id`, `username`, `displayName`, embutido porque não há rota de usuário por id) e `createdAt`; mais recente primeiro. Os **enviados** ainda não têm listagem | listar os pedidos enviados, se a tela precisar |

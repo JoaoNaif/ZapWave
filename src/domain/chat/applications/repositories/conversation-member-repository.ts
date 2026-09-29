@@ -6,6 +6,10 @@ export abstract class ConversationMemberRepository {
   abstract findManyByConversationId(
     conversationId: string
   ): Promise<ConversationMember[]>
+  // conversationId → quantidade de membros (conversa sem membro fica de fora)
+  abstract countManyByConversationIds(
+    conversationIds: string[]
+  ): Promise<Map<string, number>>
   abstract findByUserWithConversationId(
     userId: string,
     conversationId: string

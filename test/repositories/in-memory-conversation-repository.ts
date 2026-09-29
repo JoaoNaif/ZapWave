@@ -22,6 +22,10 @@ export class InMemoryConversationRepository implements ConversationRepository {
     return conversation
   }
 
+  async findManyByIds(ids: string[]): Promise<Conversation[]> {
+    return this.items.filter((item) => ids.includes(item.id.toString()))
+  }
+
   async findManyByDmKeys(dmKeys: string[]): Promise<Conversation[]> {
     return this.items.filter(
       (item) => item.dmKey !== null && dmKeys.includes(item.dmKey)

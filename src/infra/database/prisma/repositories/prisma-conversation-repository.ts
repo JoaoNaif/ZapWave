@@ -28,6 +28,14 @@ export class PrismaConversationRepository implements ConversationRepository {
     return PrismaConversationMapper.toDomain(conversation)
   }
 
+  async findManyByIds(ids: string[]): Promise<Conversation[]> {
+    const conversations = await this.prisma.conversation.findMany({
+      where: { id: { in: ids } },
+    })
+
+    return conversations.map(PrismaConversationMapper.toDomain)
+  }
+
   async findManyByDmKeys(dmKeys: string[]): Promise<Conversation[]> {
     const conversations = await this.prisma.conversation.findMany({
       where: { dmKey: { in: dmKeys } },

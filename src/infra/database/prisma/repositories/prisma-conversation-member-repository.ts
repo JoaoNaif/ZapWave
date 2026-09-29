@@ -5,9 +5,7 @@ import { PrismaService } from '../prisma.service'
 import { PrismaConversationMemberMapper } from '../mappers/prisma-conversation-member-mapper'
 
 @Injectable()
-export class PrismaConversationMemberRepository
-  implements ConversationMemberRepository
-{
+export class PrismaConversationMemberRepository implements ConversationMemberRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<ConversationMember | null> {
@@ -38,6 +36,21 @@ export class PrismaConversationMemberRepository
     })
 
     return conversationMembers.map(PrismaConversationMemberMapper.toDomain)
+  }
+
+  async countManyByConversationIds(
+    conversationIds: string[]
+  ): Promise<Map<string, number>> {
+    // um GROUP BY só, em vez de um count por sala
+    const groups = await this.prisma.conversationMember.groupBy({
+      by: ['conversationId'],
+      where: { conversationId: { in: conversationIds } },
+      _count: { _all: true },
+    })
+
+    return new Map(
+      groups.map((group) => [group.conversationId, group._count._all])
+    )
   }
 
   async findByUserWithConversationId(
