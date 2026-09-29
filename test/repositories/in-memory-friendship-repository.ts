@@ -38,6 +38,16 @@ export class InMemoryFriendshipRepository implements FriendshipRepository {
     )
   }
 
+  async findManyPendingByRecipientId(
+    recipientId: string
+  ): Promise<Friendship[]> {
+    return this.items
+      .filter(
+        (item) => item.status === 'pending' && item.recipientId === recipientId
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
   async create(friendship: Friendship): Promise<void> {
     this.items.push(friendship)
 

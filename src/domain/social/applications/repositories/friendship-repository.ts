@@ -8,6 +8,10 @@ export abstract class FriendshipRepository {
   ): Promise<Friendship | null>
   // amizades já aceitas em que o usuário é sender OU recipient
   abstract findManyAcceptedByUserId(userId: string): Promise<Friendship[]>
+  // pedidos que o usuário recebeu e ainda não respondeu, mais recentes primeiro
+  abstract findManyPendingByRecipientId(
+    recipientId: string
+  ): Promise<Friendship[]>
   abstract create(friendship: Friendship): Promise<void>
   abstract save(friendship: Friendship): Promise<void>
   abstract delete(friendship: Friendship): Promise<void>
