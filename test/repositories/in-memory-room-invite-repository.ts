@@ -40,14 +40,13 @@ export class InMemoryRoomInviteRepository implements RoomInviteRepository {
     return roomInvite
   }
 
-  async findManyByIviteeIdWithStausPending(
-    inviteeId: string,
-    status: string
-  ): Promise<RoomInvite[]> {
-    return this.items.filter(
-      (item) =>
-        item.inviteeId.toString() === inviteeId && item.status === status
-    )
+  async findManyPendingByInviteeId(inviteeId: string): Promise<RoomInvite[]> {
+    return this.items
+      .filter(
+        (item) =>
+          item.inviteeId.toString() === inviteeId && item.status === 'pending'
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }
 
   async create(roomInvite: RoomInvite): Promise<void> {

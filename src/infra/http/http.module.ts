@@ -53,6 +53,8 @@ import { FetchFriendRequestsController } from './controllers/social/fetch-friend
 import { FetchFriendRequestsUseCase } from '@/domain/social/applications/use-cases/fetch-friend-requests'
 import { FetchMyRoomsController } from './controllers/rooms/fetch-my-rooms.controller'
 import { FetchMyRoomsUseCase } from '@/domain/rooms/applications/use-cases/fetch-my-rooms'
+import { FetchRoomInvitesController } from './controllers/rooms/fetch-room-invites.controller'
+import { FetchRoomInvitesUseCase } from '@/domain/rooms/applications/use-cases/fetch-room-invites'
 
 @Module({
   // WebsocketModule: fornece o SessionGateway que o revoke-device usa pra
@@ -81,6 +83,7 @@ import { FetchMyRoomsUseCase } from '@/domain/rooms/applications/use-cases/fetch
     LeaveRoomController,
     RemoveMemberController,
     FetchMyRoomsController,
+    FetchRoomInvitesController,
     FetchConversationHistoryController,
     MarkConversationReadController,
     OpenDirectConversationController,
@@ -108,6 +111,7 @@ import { FetchMyRoomsUseCase } from '@/domain/rooms/applications/use-cases/fetch
     LeaveRoomUseCase,
     RemoveMemberUseCase,
     FetchMyRoomsUseCase,
+    FetchRoomInvitesUseCase,
     FetchConversationHistoryUseCase,
     MarkConversationReadUseCase,
     OpenDirectConversationUseCase,

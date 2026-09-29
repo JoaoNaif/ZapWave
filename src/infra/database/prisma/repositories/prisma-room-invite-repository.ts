@@ -4,7 +4,7 @@ import { ConversationMember } from '@/domain/chat/entities/conversation-member'
 import { RoomInviteRepository } from '@/domain/rooms/applications/repositories/room-invite-repository'
 import { RoomInvite } from '@/domain/rooms/entities/room-invite'
 import { Injectable } from '@nestjs/common'
-import { Prisma, StatusRoomInvite } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 import { PrismaRoomInviteMapper } from '../mappers/prisma-room-invite-mapper'
 import { PrismaConversationMemberMapper } from '../mappers/prisma-conversation-member-mapper'
@@ -44,15 +44,10 @@ export class PrismaRoomInviteRepository implements RoomInviteRepository {
     return PrismaRoomInviteMapper.toDomain(roomInvite)
   }
 
-  async findManyByIviteeIdWithStausPending(
-    inviteeId: string,
-    status: string
-  ): Promise<RoomInvite[]> {
+  async findManyPendingByInviteeId(inviteeId: string): Promise<RoomInvite[]> {
     const roomInvites = await this.prisma.roomInvite.findMany({
-      where: {
-        inviteeId,
-        status: status.toUpperCase() as StatusRoomInvite,
-      },
+      where: { inviteeId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
     })
 
     return roomInvites.map(PrismaRoomInviteMapper.toDomain)

@@ -7,10 +7,8 @@ export abstract class RoomInviteRepository {
     conversationId: string,
     inviteeId: string
   ): Promise<RoomInvite | null>
-  abstract findManyByIviteeIdWithStausPending(
-    inviteeId: string,
-    status: string
-  ): Promise<RoomInvite[]>
+  // convites que o usuário recebeu e ainda não respondeu, mais recentes primeiro
+  abstract findManyPendingByInviteeId(inviteeId: string): Promise<RoomInvite[]>
   // Lança ResourceAlreadyExistsError se já existe convite pra esse par
   // (sala, convidado) — a checagem do use-case não segura dois pedidos
   // simultâneos, quem segura é a constraint única do banco.
