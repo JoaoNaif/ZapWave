@@ -36,6 +36,17 @@ export class PrismaFriendshipRepository implements FriendshipRepository {
     return PrismaFriendshipMapper.toDomain(friendship)
   }
 
+  async findManyAcceptedByUserId(userId: string): Promise<Friendship[]> {
+    const friendships = await this.prisma.friendship.findMany({
+      where: {
+        status: 'ACCEPTED',
+        OR: [{ senderId: userId }, { recipientId: userId }],
+      },
+    })
+
+    return friendships.map(PrismaFriendshipMapper.toDomain)
+  }
+
   async create(friendship: Friendship): Promise<void> {
     const data = PrismaFriendshipMapper.toPrisma(friendship)
 

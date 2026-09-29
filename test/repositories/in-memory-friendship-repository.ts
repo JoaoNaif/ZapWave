@@ -30,6 +30,14 @@ export class InMemoryFriendshipRepository implements FriendshipRepository {
     return friendship
   }
 
+  async findManyAcceptedByUserId(userId: string): Promise<Friendship[]> {
+    return this.items.filter(
+      (item) =>
+        item.status === 'accepted' &&
+        (item.senderId === userId || item.recipientId === userId)
+    )
+  }
+
   async create(friendship: Friendship): Promise<void> {
     this.items.push(friendship)
 

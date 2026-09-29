@@ -47,6 +47,8 @@ import { ReadNotificationController } from './controllers/notifications/read-not
 import { ReadNotificationUseCase } from '@/domain/notification/applications/use-cases/read-notification'
 import { FetchPresenceController } from './controllers/chat/fetch-presence.controller'
 import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch-presence'
+import { FetchFriendsController } from './controllers/social/fetch-friends.controller'
+import { FetchFriendsUseCase } from '@/domain/social/applications/use-cases/fetch-friends'
 
 @Module({
   // WebsocketModule: fornece o SessionGateway que o revoke-device usa pra
@@ -67,6 +69,7 @@ import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch
     SendFriendInviteController,
     AcceptController,
     DeclineController,
+    FetchFriendsController,
     CreateRoomController,
     InviteToRoomController,
     AcceptRoomInviteController,
@@ -91,6 +94,7 @@ import { FetchPresenceUseCase } from '@/domain/chat/applications/use-cases/fetch
     SendFriendInviteUseCase,
     AcceptUseCase,
     DeclineUseCase,
+    FetchFriendsUseCase,
     CreateRoomUseCase,
     InviteToRoomUseCase,
     AcceptRoomInviteUseCase,
