@@ -82,6 +82,7 @@ Uma conversa — DM ou sala.
 | `name` | text? | só em `room`; nulo em `dm` |
 | `createdById` | uuid → User | quem criou |
 | `createdAt` | timestamptz | |
+| `lastMessageAt` | timestamptz? | data da última mensagem, em qualquer direção. **Desnormalizado**: o `send-message` atualiza a cada envio (nunca volta no tempo). Serve pra ordenar amigos/conversas por última interação sem procurar a última mensagem de cada conversa. `null` = sem mensagem |
 
 - `dm`: exatamente 2 membros, sem `name`, `role` ignorado. Deve existir no máximo **uma**
   DM por par de usuários (guardar uma chave normalizada do par, única).
@@ -262,7 +263,7 @@ tela por tela. São use-cases novos — não exigem mexer nos use-cases que já 
 | Listagem | O que já existe | O que falta |
 |----------|-----------------|-------------|
 | Minhas conversas (DMs + salas) | `ConversationMemberRepository.findManyByUserId` | use-case + controller; decidir o que cada item traz (nome da sala ou o outro participante da DM, última mensagem, contador de não lidas) |
-| Meus amigos | nada (o repositório só busca por id e por par) | método no repositório (`ACCEPTED`, nas duas pontas), use-case, controller |
+| ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence) e `lastMessageAt` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
 | Pedidos de amizade pendentes | nada | idem; decidir se lista só os recebidos ou também os enviados |
 | Convites de sala pendentes (do convidado) | `RoomInviteRepository.findManyByIviteeIdWithStausPending` | use-case + controller. **Sem isso o convidado não tem como descobrir o `inviteId`** que o `accept-room-invite` exige — a notificação hoje só avisa que houve convite |
 | Membros de uma sala | `ConversationMemberRepository.findManyByConversationId` | use-case + controller (só quem é membro pode ver) |

@@ -3,6 +3,7 @@ import { ConversationMember } from '../../entities/conversation-member'
 
 export abstract class ConversationRepository {
   abstract findById(id: string): Promise<Conversation | null>
+  abstract findManyByDmKeys(dmKeys: string[]): Promise<Conversation[]>
   abstract create(conversation: Conversation): Promise<void>
 
   // Grava a conversa E os membros iniciais de uma vez: ou grava tudo, ou nada.
@@ -13,5 +14,13 @@ export abstract class ConversationRepository {
   ): Promise<void>
 
   abstract save(conversation: Conversation): Promise<void>
+
+  // Escrita pontual (sem ler a conversa antes) e que nunca volta no tempo:
+  // se duas mensagens chegarem fora de ordem, fica a data mais recente.
+  abstract updateLastMessageAt(
+    conversationId: string,
+    lastMessageAt: Date
+  ): Promise<void>
+
   abstract delete(conversation: Conversation): Promise<void>
 }

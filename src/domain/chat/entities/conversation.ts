@@ -11,6 +11,10 @@ export interface ConversationProps {
   // nela, então duas DMs pro mesmo par não coexistem. null em sala (e nas DMs
   // criadas antes da chave existir).
   dmKey: string | null
+  // Quando saiu a última mensagem (em qualquer direção). Desnormalizado de
+  // propósito: listar amigos/conversas "por última interação" vira um ORDER BY
+  // em vez de procurar a última mensagem de cada conversa. null = sem mensagem.
+  lastMessageAt: Date | null
 }
 
 export class Conversation extends Entity<ConversationProps> {
@@ -51,8 +55,16 @@ export class Conversation extends Entity<ConversationProps> {
     return this.props.dmKey
   }
 
+  get lastMessageAt() {
+    return this.props.lastMessageAt
+  }
+
+  set lastMessageAt(lastMessageAt: Date | null) {
+    this.props.lastMessageAt = lastMessageAt
+  }
+
   static create(
-    props: Optional<ConversationProps, 'createdAt' | 'dmKey'>,
+    props: Optional<ConversationProps, 'createdAt' | 'dmKey' | 'lastMessageAt'>,
     id?: UniqueEntityId
   ) {
     const conversation = new Conversation(
@@ -60,6 +72,7 @@ export class Conversation extends Entity<ConversationProps> {
         ...props,
         createdAt: props.createdAt ?? new Date(),
         dmKey: props.dmKey ?? null,
+        lastMessageAt: props.lastMessageAt ?? null,
       },
       id
     )

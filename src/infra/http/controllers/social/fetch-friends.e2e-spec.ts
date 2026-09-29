@@ -84,15 +84,58 @@ describe('Fetch Friends (e2e)', () => {
           username: ana.username,
           displayName: 'Ana',
           online: false,
+          lastMessageAt: null,
         },
         {
           id: bruno.userId,
           username: bruno.username,
           displayName: 'Bruno',
           online: false,
+          lastMessageAt: null,
         },
       ],
     })
+  })
+
+  test('[GET] /friends orders by the last message exchanged', async () => {
+    const user = await createSession()
+    const ana = await createSession('Ana')
+    const bruno = await createSession('Bruno')
+    const carla = await createSession('Carla')
+
+    for (const friend of [ana, bruno, carla]) {
+      const friendshipId = await sendInvite(user, friend)
+      await friend.agent.put('/invite-friendship-accept').send({ friendshipId })
+    }
+
+    async function openDm(friendId: string) {
+      const response = await user.agent
+        .post('/direct-conversation')
+        .send({ friendId })
+
+      return response.body.conversation.id as string
+    }
+
+    const dmWithBruno = await openDm(bruno.userId)
+    const dmWithAna = await openDm(ana.userId)
+
+    // usuário escreve pro Bruno, depois a Ana escreve pro usuário:
+    // a mensagem recebida também conta como interação
+    await user.agent
+      .post('/message')
+      .send({ conversationId: dmWithBruno, body: 'oi Bruno' })
+    await ana.agent
+      .post('/message')
+      .send({ conversationId: dmWithAna, body: 'oi!' })
+
+    const response = await user.agent.get('/friends')
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      response.body.friends.map((friend: { id: string }) => friend.id)
+    ).toEqual([ana.userId, bruno.userId, carla.userId])
+    expect(response.body.friends[0].lastMessageAt).toEqual(expect.any(String))
+    expect(response.body.friends[2].lastMessageAt).toBeNull()
   })
 
   test('[GET] /friends does not list pending invites', async () => {

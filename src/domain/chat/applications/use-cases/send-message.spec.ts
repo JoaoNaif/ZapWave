@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SendMessageUseCase } from './send-message'
 import { InMemoryConversationMemberRepository } from 'test/repositories/in-memory-conversation-member-repository'
+import { InMemoryConversationRepository } from 'test/repositories/in-memory-conversation-repository'
 import { InMemoryMessageRepository } from 'test/repositories/in-memory-message-repository'
 import { InMemoryMessageStream } from 'test/gateways/in-memory-message-stream'
 import { InMemoryDevicesRepository } from 'test/repositories/in-memory-devices-repository'
 import { makeConversationMember } from 'test/factories/make-conversation-member'
+import { makeConversation } from 'test/factories/make-conversation'
 import { makeDevice } from 'test/factories/make-device'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 
 let inMemoryConversationMemberRepository: InMemoryConversationMemberRepository
+let inMemoryConversationRepository: InMemoryConversationRepository
 let inMemoryMessageRepository: InMemoryMessageRepository
 let inMemoryMessageStream: InMemoryMessageStream
 let inMemoryDevicesRepository: InMemoryDevicesRepository
@@ -20,12 +23,14 @@ describe('Send Message', () => {
   beforeEach(() => {
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
+    inMemoryConversationRepository = new InMemoryConversationRepository()
     inMemoryMessageRepository = new InMemoryMessageRepository()
     inMemoryMessageStream = new InMemoryMessageStream()
     inMemoryDevicesRepository = new InMemoryDevicesRepository()
 
     sut = new SendMessageUseCase(
       inMemoryConversationMemberRepository,
+      inMemoryConversationRepository,
       inMemoryMessageRepository,
       inMemoryMessageStream,
       inMemoryDevicesRepository
@@ -57,6 +62,56 @@ describe('Send Message', () => {
         result.value.message.id
       )
     }
+  })
+
+  it('should update the conversation last message date', async () => {
+    await inMemoryConversationRepository.create(
+      makeConversation({}, new UniqueEntityId('conversation-1'))
+    )
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        userId: new UniqueEntityId('user-1'),
+        conversationId: new UniqueEntityId('conversation-1'),
+      })
+    )
+
+    const result = await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+    })
+
+    expect(result.isRight()).toBe(true)
+    expect(inMemoryConversationRepository.items[0].lastMessageAt).toEqual(
+      inMemoryMessageRepository.items[0].createdAt
+    )
+  })
+
+  it('should never move the conversation last message date backwards', async () => {
+    const future = new Date(Date.now() + 60_000)
+
+    await inMemoryConversationRepository.create(
+      makeConversation(
+        { lastMessageAt: future },
+        new UniqueEntityId('conversation-1')
+      )
+    )
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        userId: new UniqueEntityId('user-1'),
+        conversationId: new UniqueEntityId('conversation-1'),
+      })
+    )
+
+    await sut.execute({
+      senderId: 'user-1',
+      conversationId: 'conversation-1',
+      body: 'oi',
+    })
+
+    expect(inMemoryConversationRepository.items[0].lastMessageAt).toEqual(
+      future
+    )
   })
 
   it('should publish the message to the message stream after persisting it', async () => {

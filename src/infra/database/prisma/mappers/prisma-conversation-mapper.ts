@@ -11,6 +11,7 @@ export class PrismaConversationMapper {
         createdById: new UniqueEntityId(raw.createdById),
         createdAt: raw.createdAt,
         dmKey: raw.dmKey,
+        lastMessageAt: raw.lastMessageAt,
       },
       new UniqueEntityId(raw.id)
     )
@@ -26,6 +27,7 @@ export class PrismaConversationMapper {
       createdById: conversation.createdById.toString(),
       createdAt: conversation.createdAt,
       dmKey: conversation.dmKey,
+      lastMessageAt: conversation.lastMessageAt,
     }
   }
 }

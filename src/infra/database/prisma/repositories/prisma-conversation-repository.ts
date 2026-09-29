@@ -28,6 +28,14 @@ export class PrismaConversationRepository implements ConversationRepository {
     return PrismaConversationMapper.toDomain(conversation)
   }
 
+  async findManyByDmKeys(dmKeys: string[]): Promise<Conversation[]> {
+    const conversations = await this.prisma.conversation.findMany({
+      where: { dmKey: { in: dmKeys } },
+    })
+
+    return conversations.map(PrismaConversationMapper.toDomain)
+  }
+
   async create(conversation: Conversation): Promise<void> {
     const data = PrismaConversationMapper.toPrisma(conversation)
 
@@ -77,6 +85,21 @@ export class PrismaConversationRepository implements ConversationRepository {
     await this.prisma.conversation.update({
       where: { id: conversation.id.toString() },
       data,
+    })
+  }
+
+  async updateLastMessageAt(
+    conversationId: string,
+    lastMessageAt: Date
+  ): Promise<void> {
+    // updateMany porque o where tem condição além do id; o "lt" garante que
+    // uma mensagem atrasada não empurra a data pra trás
+    await this.prisma.conversation.updateMany({
+      where: {
+        id: conversationId,
+        OR: [{ lastMessageAt: null }, { lastMessageAt: { lt: lastMessageAt } }],
+      },
+      data: { lastMessageAt },
     })
   }
 

@@ -64,16 +64,19 @@ enum TypeConversation {
 }
 
 model Conversation {
-  id          String           @id @default(uuid())
-  type        TypeConversation
-  name        String?
-  createdById String           @map("created_by_id")
-  createdAt   DateTime         @default(now()) @map("created_at")
+  id            String           @id @default(uuid())
+  type          TypeConversation
+  name          String?
+  createdById   String           @map("created_by_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
   // só preenchido quando type = DM: par de participantes normalizado
   // (menor id + ':' + maior id), pra impedir 2 DMs pro mesmo par.
   // TODO(infra): calcular e passar ao criar a Conversation em
   // open-direct-conversation.ts / no repositório Prisma.
-  dmKey       String?          @unique @map("dm_key")
+  dmKey         String?          @unique @map("dm_key")
+  // data da última mensagem (desnormalizada, atualizada pelo send-message):
+  // ordena a lista de amigos / conversas por última interação
+  lastMessageAt DateTime?        @map("last_message_at")
 
   user                User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
   conversationMembers ConversationMember[]

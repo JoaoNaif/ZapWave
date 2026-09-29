@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common'
 import { DevicesRepository } from '@/domain/accounts/applications/repositories/device-repository'
 import { Message } from '../../entities/message'
 import { ConversationMemberRepository } from '../repositories/conversation-member-repository'
+import { ConversationRepository } from '../repositories/conversation-repository'
 import { MessageRepository } from '../repositories/message-repository'
 import { MessageStream } from '../gateways/message-stream'
 import { MessageDto } from '../dtos/message-dto'
@@ -23,6 +24,7 @@ type SendMessageRes = Either<ResourceNotFoundError, { message: MessageDto }>
 export class SendMessageUseCase {
   constructor(
     private conversationMemberRepository: ConversationMemberRepository,
+    private conversationRepository: ConversationRepository,
     private messageRepository: MessageRepository,
     private messageStream: MessageStream,
     private devicesRepository: DevicesRepository
@@ -67,6 +69,11 @@ export class SendMessageUseCase {
     })
 
     await this.messageRepository.create(message)
+    await this.conversationRepository.updateLastMessageAt(
+      conversationId,
+      message.createdAt
+    )
+
     // Fan-out: todo device ativo de todo membro (inclusive os outros devices
     // de quem enviou) recebe a mensagem no seu inbox.
     const members =

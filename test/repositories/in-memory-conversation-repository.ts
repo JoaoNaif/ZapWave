@@ -22,6 +22,12 @@ export class InMemoryConversationRepository implements ConversationRepository {
     return conversation
   }
 
+  async findManyByDmKeys(dmKeys: string[]): Promise<Conversation[]> {
+    return this.items.filter(
+      (item) => item.dmKey !== null && dmKeys.includes(item.dmKey)
+    )
+  }
+
   async create(conversation: Conversation): Promise<void> {
     this.assertDmKeyIsFree(conversation)
 
@@ -65,6 +71,25 @@ export class InMemoryConversationRepository implements ConversationRepository {
     )
 
     this.items[itemIndex] = conversation
+  }
+
+  async updateLastMessageAt(
+    conversationId: string,
+    lastMessageAt: Date
+  ): Promise<void> {
+    const conversation = this.items.find(
+      (item) => item.id.toString() === conversationId
+    )
+
+    if (!conversation) return
+
+    if (
+      conversation.lastMessageAt &&
+      conversation.lastMessageAt >= lastMessageAt
+    )
+      return
+
+    conversation.lastMessageAt = lastMessageAt
   }
 
   async delete(conversation: Conversation): Promise<void> {
