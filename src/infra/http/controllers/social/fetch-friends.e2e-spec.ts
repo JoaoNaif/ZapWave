@@ -85,6 +85,7 @@ describe('Fetch Friends (e2e)', () => {
           displayName: 'Ana',
           online: false,
           lastMessageAt: null,
+          unreadCount: 0,
         },
         {
           id: bruno.userId,
@@ -92,6 +93,7 @@ describe('Fetch Friends (e2e)', () => {
           displayName: 'Bruno',
           online: false,
           lastMessageAt: null,
+          unreadCount: 0,
         },
       ],
     })
@@ -136,6 +138,12 @@ describe('Fetch Friends (e2e)', () => {
     ).toEqual([ana.userId, bruno.userId, carla.userId])
     expect(response.body.friends[0].lastMessageAt).toEqual(expect.any(String))
     expect(response.body.friends[2].lastMessageAt).toBeNull()
+    // a da Ana não foi lida; a do Bruno fui eu que mandei, não conta
+    expect(
+      response.body.friends.map(
+        (friend: { unreadCount: number }) => friend.unreadCount
+      )
+    ).toEqual([1, 0, 0])
   })
 
   test('[GET] /friends does not list pending invites', async () => {

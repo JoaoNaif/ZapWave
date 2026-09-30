@@ -6,4 +6,7 @@ export interface MyRoomDto {
   role: 'owner' | 'admin' | 'member'
   memberCount: number
   lastMessageAt: Date | null
+  // mensagens dos outros depois do lastReadMessageId de quem pediu (ou do
+  // joinedAt, se nunca marcou como lida)
+  unreadCount: number
 }

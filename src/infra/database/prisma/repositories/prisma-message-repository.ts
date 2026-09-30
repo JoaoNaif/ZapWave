@@ -1,4 +1,7 @@
-import { MessageRepository } from '@/domain/chat/applications/repositories/message-repository'
+import {
+  MessageRepository,
+  UnreadCursor,
+} from '@/domain/chat/applications/repositories/message-repository'
 import { Message } from '@/domain/chat/entities/message'
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
@@ -57,6 +60,34 @@ export class PrismaMessageRepository implements MessageRepository {
     })
 
     return messages.map(PrismaMessageMapper.toDomain)
+  }
+
+  async countUnreadByConversation(
+    userId: string,
+    cursors: UnreadCursor[]
+  ): Promise<Map<string, number>> {
+    if (cursors.length === 0) return new Map()
+
+    // um GROUP BY só: cada cursor vira um ramo do OR, e cada ramo é um range
+    // no índice (conversationId, id) — ou conversationId + createdAt quando
+    // o membro nunca marcou nada como lido
+    const groups = await this.prisma.message.groupBy({
+      by: ['conversationId'],
+      where: {
+        senderId: { not: userId },
+        OR: cursors.map((cursor) => ({
+          conversationId: cursor.conversationId,
+          ...(cursor.lastReadMessageId
+            ? { id: { gt: cursor.lastReadMessageId } }
+            : { createdAt: { gte: cursor.joinedAt } }),
+        })),
+      },
+      _count: { _all: true },
+    })
+
+    return new Map(
+      groups.map((group) => [group.conversationId, group._count._all])
+    )
   }
 
   async create(message: Message): Promise<void> {

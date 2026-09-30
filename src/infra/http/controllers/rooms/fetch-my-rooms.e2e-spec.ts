@@ -90,6 +90,7 @@ describe('Fetch My Rooms (e2e)', () => {
           role: 'owner',
           memberCount: 2,
           lastMessageAt: null,
+          unreadCount: 0,
         },
       ],
     })
@@ -132,6 +133,41 @@ describe('Fetch My Rooms (e2e)', () => {
       newerRoom,
     ])
     expect(response.body.rooms[0].lastMessageAt).toEqual(expect.any(String))
+  })
+
+  test('[GET] /rooms counts unread messages per member', async () => {
+    const owner = await createSession()
+    const member = await createSession()
+
+    const roomId = await createRoom(owner, 'contagem')
+
+    async function send(body: string) {
+      const response = await owner.agent
+        .post('/message')
+        .send({ conversationId: roomId, body })
+
+      return response.body.message.id as string
+    }
+
+    // mandada antes de o membro entrar: não conta pra ele
+    await send('antes')
+    await addToRoom(owner, member, roomId)
+    const secondId = await send('depois 1')
+    await send('depois 2')
+
+    const beforeRead = await member.agent.get('/rooms')
+    expect(beforeRead.body.rooms[0].unreadCount).toBe(2)
+
+    await member.agent
+      .put('/mark-conversation')
+      .send({ conversationId: roomId, messageId: secondId })
+
+    const afterRead = await member.agent.get('/rooms')
+    expect(afterRead.body.rooms[0].unreadCount).toBe(1)
+
+    // o dono só mandou: nada a ler
+    const ownerView = await owner.agent.get('/rooms')
+    expect(ownerView.body.rooms[0].unreadCount).toBe(0)
   })
 
   test('[GET] /rooms without a cookie fails', async () => {

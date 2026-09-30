@@ -7,4 +7,6 @@ export interface FriendDto extends UserSummaryDto {
   // última mensagem da DM com esse amigo (null = nunca conversaram). Vai na
   // resposta pro front reordenar sozinho quando chegar mensagem pelo WS.
   lastMessageAt: Date | null
+  // mensagens do amigo na DM que eu ainda não li (0 se não há DM)
+  unreadCount: number
 }

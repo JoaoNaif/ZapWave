@@ -1,5 +1,14 @@
 import { Message } from '../../entities/message'
 
+// Até onde um membro já leu uma conversa. Sem lastReadMessageId (nunca marcou
+// como lida), vale o joinedAt: quem entra numa sala antiga não herda o
+// histórico inteiro como "não lido".
+export interface UnreadCursor {
+  conversationId: string
+  lastReadMessageId: string | null
+  joinedAt: Date
+}
+
 export abstract class MessageRepository {
   abstract findById(id: string): Promise<Message | null>
   abstract findByClientMessageId(
@@ -12,6 +21,13 @@ export abstract class MessageRepository {
     conversationId: string,
     params: { before?: string; limit: number }
   ): Promise<Message[]>
+
+  // mensagens dos OUTROS depois do cursor, por conversa, numa consulta só.
+  // Conversa sem nenhuma não lida fica fora do Map.
+  abstract countUnreadByConversation(
+    userId: string,
+    cursors: UnreadCursor[]
+  ): Promise<Map<string, number>>
 
   abstract create(message: Message): Promise<void>
   abstract save(message: Message): Promise<void>

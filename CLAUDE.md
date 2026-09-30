@@ -175,8 +175,8 @@ Backend funcional de ponta a ponta; o frontend está sendo construído em `../Fr
 
 **Pendências conhecidas** (detalhes em [`docs/03`](./docs/03-entidades.md) §6):
 listagens de leitura que faltam (minhas conversas, pedidos de amizade enviados, meus devices)
-e o contador de não lidas — serão definidos junto com o frontend (já feitos: `/friends`,
-`/friend-requests`, `/rooms`, `/room-invites`, `/rooms/:id/members`, `/room-invite-decline`);
+— serão definidas junto com o frontend (já feitos: `/friends` e `/rooms`, os dois com
+`unreadCount`, `/friend-requests`, `/room-invites`, `/rooms/:id/members`, `/room-invite-decline`);
 convite de sala recusado bloqueia reconvite (unique do par); texto das notificações usa id cru; indicador de digitação (frame
 `typing` no WS) ainda não existe; o `ConnectionRegistry` é por processo, então revogar só
 fecha de imediato os sockets da instância que recebeu o pedido (ver `docs/05` §9).

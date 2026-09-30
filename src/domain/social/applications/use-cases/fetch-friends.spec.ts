@@ -3,6 +3,10 @@ import { FetchFriendsUseCase } from './fetch-friends'
 import { InMemoryFriendshipRepository } from 'test/repositories/in-memory-friendship-repository'
 import { InMemoryUserRepository } from 'test/repositories/in-memory-user-repository'
 import { InMemoryConversationRepository } from 'test/repositories/in-memory-conversation-repository'
+import { InMemoryConversationMemberRepository } from 'test/repositories/in-memory-conversation-member-repository'
+import { InMemoryMessageRepository } from 'test/repositories/in-memory-message-repository'
+import { makeConversationMember } from 'test/factories/make-conversation-member'
+import { makeMessage } from 'test/factories/make-message'
 import { FakePresence } from 'test/gateways/fake-presence'
 import { makeConversation } from 'test/factories/make-conversation'
 import { Conversation } from '@/domain/chat/entities/conversation'
@@ -13,6 +17,8 @@ import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 let inMemoryFriendshipRepository: InMemoryFriendshipRepository
 let inMemoryUserRepository: InMemoryUserRepository
 let inMemoryConversationRepository: InMemoryConversationRepository
+let inMemoryConversationMemberRepository: InMemoryConversationMemberRepository
+let inMemoryMessageRepository: InMemoryMessageRepository
 let fakePresence: FakePresence
 
 let sut: FetchFriendsUseCase
@@ -22,12 +28,17 @@ describe('Fetch Friends', () => {
     inMemoryFriendshipRepository = new InMemoryFriendshipRepository()
     inMemoryUserRepository = new InMemoryUserRepository()
     inMemoryConversationRepository = new InMemoryConversationRepository()
+    inMemoryConversationMemberRepository =
+      new InMemoryConversationMemberRepository()
+    inMemoryMessageRepository = new InMemoryMessageRepository()
     fakePresence = new FakePresence()
 
     sut = new FetchFriendsUseCase(
       inMemoryFriendshipRepository,
       inMemoryUserRepository,
       inMemoryConversationRepository,
+      inMemoryConversationMemberRepository,
+      inMemoryMessageRepository,
       fakePresence
     )
   })
@@ -235,7 +246,66 @@ describe('Fetch Friends', () => {
         'id',
         'lastMessageAt',
         'online',
+        'unreadCount',
         'username',
+      ])
+    }
+  })
+
+  it('should count unread messages from each friend in the DM', async () => {
+    for (const id of ['friend-1', 'friend-2']) {
+      await inMemoryUserRepository.create(makeUser({}, new UniqueEntityId(id)))
+      await inMemoryFriendshipRepository.create(
+        makeFriendship({
+          senderId: 'user-1',
+          recipientId: id,
+          status: 'accepted',
+        })
+      )
+    }
+
+    // só friend-1 tem DM; friend-2 nunca conversou
+    await inMemoryConversationRepository.create(
+      makeConversation(
+        {
+          type: 'dm',
+          dmKey: Conversation.dmKeyFor('user-1', 'friend-1'),
+          lastMessageAt: new Date('2026-09-10T10:00:00Z'),
+        },
+        new UniqueEntityId('dm-1')
+      )
+    )
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        conversationId: new UniqueEntityId('dm-1'),
+        userId: new UniqueEntityId('user-1'),
+        lastReadMessageId: new UniqueEntityId('msg-01'),
+      })
+    )
+    for (const [id, senderId] of [
+      ['msg-01', 'friend-1'],
+      ['msg-02', 'friend-1'],
+      ['msg-03', 'user-1'],
+      ['msg-04', 'friend-1'],
+    ]) {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          {
+            conversationId: new UniqueEntityId('dm-1'),
+            senderId: new UniqueEntityId(senderId),
+          },
+          new UniqueEntityId(id)
+        )
+      )
+    }
+
+    const result = await sut.execute({ userId: 'user-1' })
+
+    expect(result.isRight()).toBe(true)
+    if (result.isRight()) {
+      expect(result.value.friends).toEqual([
+        expect.objectContaining({ id: 'friend-1', unreadCount: 2 }),
+        expect.objectContaining({ id: 'friend-2', unreadCount: 0 }),
       ])
     }
   })

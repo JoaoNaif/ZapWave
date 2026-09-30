@@ -225,7 +225,7 @@ Ciclo de vida de uma mensagem enviada:
 |-------|------|---------|
 | Presença ("online agora", "visto por último") | Redis: chave com TTL + heartbeat, ou sorted set por `lastSeen` | expira sozinho |
 | "Fulano está digitando…" | evento WebSocket; no máximo chave curtíssima (`EX 5`) | dura segundos |
-| Contador de mensagens não lidas por conversa | Redis: contador atômico `unread:{userId}:{conversationId}` | muda o tempo todo |
+| ~~Contador de mensagens não lidas por conversa~~ | **mudou**: é calculado no Postgres a partir do `lastReadMessageId` (ver §6) — o contador Redis `unread:{userId}:{conversationId}` fica como otimização futura, se a consulta pesar | o dado já existia; um contador a mais teria que ficar sincronizado com ele |
 | Log recente / entrega das mensagens | Redis Streams (log por conversa + inbox por device) | caminho quente |
 | Mensagens pendentes / não entregues | Redis Streams (PEL do consumer group do device) | primitivo nativo |
 | Membros **online** de uma sala | Redis: set derivado da presença | derivado |
@@ -250,9 +250,14 @@ fase posterior.
 
 ### Pendentes (decididas, ainda sem implementação)
 
-**Contador de não lidas.** O dado já existe (`ConversationMember.lastReadMessageId`,
-atualizado pelo `mark-conversation-read`), mas nada expõe o número. Só faz sentido junto
-com a listagem de conversas (abaixo): é ela que vai mostrar o contador de cada uma.
+~~**Contador de não lidas.**~~ **Feito**: `unreadCount` em cada item de `GET /friends`
+(da DM com o amigo; 0 se não há DM) e de `GET /rooms`. Conta as mensagens da conversa com
+`senderId` ≠ eu e `id > lastReadMessageId` do meu membro (ids são ULID, então `>` é "mais
+nova"). Se `lastReadMessageId` é null, conta as com `createdAt >= joinedAt` — quem aceita
+convite numa sala antiga não herda o histórico como não lido. Uma consulta só para a lista
+inteira (`MessageRepository.countUnreadByConversation`, `groupBy` com um ramo do `OR` por
+conversa). O número só vem no HTTP: em tempo real o front soma ao receber mensagem pelo WS e
+zera ao abrir a conversa (chamando `PUT /mark-conversation` com a última mensagem).
 
 **Listagens de leitura.** O que o app já **escreve** está completo (criar, convidar,
 aceitar, enviar...), mas quase nada permite **ler** a lista de volta. Isso é proposital:
@@ -262,9 +267,9 @@ tela por tela. São use-cases novos — não exigem mexer nos use-cases que já 
 
 | Listagem | O que já existe | O que falta |
 |----------|-----------------|-------------|
-| ~~Meus grupos~~ | **feito**: `GET /rooms` (`FetchMyRoomsUseCase`, contexto `rooms`) — só `type = room` em que o usuário é membro; cada item traz `id`, `name`, `role` (de quem pediu), `memberCount` e `lastMessageAt`; ordena pela última atividade (`lastMessageAt`, ou `createdAt` se a sala não tem mensagem). Sem paginação | — |
+| ~~Meus grupos~~ | **feito**: `GET /rooms` (`FetchMyRoomsUseCase`, contexto `rooms`) — só `type = room` em que o usuário é membro; cada item traz `id`, `name`, `role` (de quem pediu), `memberCount`, `lastMessageAt` e `unreadCount`; ordena pela última atividade (`lastMessageAt`, ou `createdAt` se a sala não tem mensagem). Sem paginação | — |
 | Minhas conversas (DMs + salas) | `ConversationMemberRepository.findManyByUserId` | use-case + controller; decidir o que cada item traz (nome da sala ou o outro participante da DM, última mensagem, contador de não lidas) |
-| ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence) e `lastMessageAt` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
+| ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence), `lastMessageAt` e `unreadCount` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
 | ~~Pedidos de amizade pendentes~~ | **feito (só os recebidos)**: `GET /friend-requests` (`FetchFriendRequestsUseCase`) — cada item traz `friendshipId` (o que o accept/decline exigem), `sender` (`id`, `username`, `displayName`, embutido porque não há rota de usuário por id) e `createdAt`; mais recente primeiro. Os **enviados** ainda não têm listagem | listar os pedidos enviados, se a tela precisar |
 | ~~Convites de sala pendentes (do convidado)~~ | **feito**: `GET /room-invites` (`FetchRoomInvitesUseCase`) — cada item traz `inviteId` (o que o `accept-room-invite` exige), `room` (`id`, `name`), `inviter` (`id`, `username`, `displayName`) e `createdAt`; mais recente primeiro. O método antigo `findManyByIviteeIdWithStausPending` (sem uso) virou `findManyPendingByInviteeId` | — |
 | ~~Membros de uma sala~~ | **feito**: `GET /rooms/:id/members` (`FetchRoomMembersUseCase`) — cada item é `UserSummaryDto` + `role`, com o `id` do **usuário** (casa com o `senderId` das mensagens e com o `targetUserId` do remove-member); owner, admins, members e alfabético dentro de cada papel. Só membro vê: quem não é membro recebe **404**, igual a sala inexistente, pra não confirmar que o id existe | — |

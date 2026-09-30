@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { FetchMyRoomsUseCase } from './fetch-my-rooms'
 import { InMemoryConversationRepository } from 'test/repositories/in-memory-conversation-repository'
 import { InMemoryConversationMemberRepository } from 'test/repositories/in-memory-conversation-member-repository'
+import { InMemoryMessageRepository } from 'test/repositories/in-memory-message-repository'
+import { makeMessage } from 'test/factories/make-message'
 import { makeConversation } from 'test/factories/make-conversation'
 import { makeConversationMember } from 'test/factories/make-conversation-member'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 
 let inMemoryConversationRepository: InMemoryConversationRepository
 let inMemoryConversationMemberRepository: InMemoryConversationMemberRepository
+let inMemoryMessageRepository: InMemoryMessageRepository
 
 let sut: FetchMyRoomsUseCase
 
@@ -16,10 +19,12 @@ describe('Fetch My Rooms', () => {
     inMemoryConversationRepository = new InMemoryConversationRepository()
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
+    inMemoryMessageRepository = new InMemoryMessageRepository()
 
     sut = new FetchMyRoomsUseCase(
       inMemoryConversationRepository,
-      inMemoryConversationMemberRepository
+      inMemoryConversationMemberRepository,
+      inMemoryMessageRepository
     )
   })
 
@@ -59,6 +64,7 @@ describe('Fetch My Rooms', () => {
           role: 'owner',
           memberCount: 3,
           lastMessageAt: null,
+          unreadCount: 0,
         },
       ])
     }
@@ -162,5 +168,76 @@ describe('Fetch My Rooms', () => {
         'room-1',
       ])
     }
+  })
+
+  describe('unread count', () => {
+    // ids ordenáveis como ULID: comparação de string = ordem de criação
+    async function addMessage(
+      id: string,
+      senderId: string,
+      createdAt = new Date('2026-09-10T10:00:00Z')
+    ) {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          {
+            conversationId: new UniqueEntityId('room-1'),
+            senderId: new UniqueEntityId(senderId),
+            createdAt,
+          },
+          new UniqueEntityId(id)
+        )
+      )
+    }
+
+    beforeEach(async () => {
+      await inMemoryConversationRepository.create(
+        makeConversation(
+          { type: 'room', name: 'g' },
+          new UniqueEntityId('room-1')
+        )
+      )
+    })
+
+    it('should count only messages from others after the last read one', async () => {
+      await inMemoryConversationMemberRepository.create(
+        makeConversationMember({
+          conversationId: new UniqueEntityId('room-1'),
+          userId: new UniqueEntityId('user-1'),
+          lastReadMessageId: new UniqueEntityId('msg-02'),
+        })
+      )
+      await addMessage('msg-01', 'user-2')
+      await addMessage('msg-02', 'user-2')
+      await addMessage('msg-03', 'user-2')
+      await addMessage('msg-04', 'user-1') // minha: não conta
+      await addMessage('msg-05', 'user-3')
+
+      const result = await sut.execute({ userId: 'user-1' })
+
+      expect(result.isRight()).toBe(true)
+      if (result.isRight()) {
+        expect(result.value.rooms[0].unreadCount).toBe(2)
+      }
+    })
+
+    it('should ignore messages sent before joining when nothing was read yet', async () => {
+      await inMemoryConversationMemberRepository.create(
+        makeConversationMember({
+          conversationId: new UniqueEntityId('room-1'),
+          userId: new UniqueEntityId('user-1'),
+          joinedAt: new Date('2026-09-10T10:00:00Z'),
+          lastReadMessageId: null,
+        })
+      )
+      await addMessage('msg-01', 'user-2', new Date('2026-09-09T10:00:00Z'))
+      await addMessage('msg-02', 'user-2', new Date('2026-09-11T10:00:00Z'))
+
+      const result = await sut.execute({ userId: 'user-1' })
+
+      expect(result.isRight()).toBe(true)
+      if (result.isRight()) {
+        expect(result.value.rooms[0].unreadCount).toBe(1)
+      }
+    })
   })
 })

@@ -1,4 +1,7 @@
-import { MessageRepository } from '@/domain/chat/applications/repositories/message-repository'
+import {
+  MessageRepository,
+  UnreadCursor,
+} from '@/domain/chat/applications/repositories/message-repository'
 import { Message } from '@/domain/chat/entities/message'
 
 export class InMemoryMessageRepository implements MessageRepository {
@@ -45,6 +48,28 @@ export class InMemoryMessageRepository implements MessageRepository {
     return messages
       .sort((a, b) => (a.id.toString() < b.id.toString() ? 1 : -1))
       .slice(0, limit)
+  }
+
+  async countUnreadByConversation(
+    userId: string,
+    cursors: UnreadCursor[]
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>()
+
+    for (const cursor of cursors) {
+      const count = this.items.filter(
+        (item) =>
+          item.conversationId.toString() === cursor.conversationId &&
+          item.senderId.toString() !== userId &&
+          (cursor.lastReadMessageId
+            ? item.id.toString() > cursor.lastReadMessageId
+            : item.createdAt >= cursor.joinedAt)
+      ).length
+
+      if (count > 0) counts.set(cursor.conversationId, count)
+    }
+
+    return counts
   }
 
   async create(message: Message): Promise<void> {
