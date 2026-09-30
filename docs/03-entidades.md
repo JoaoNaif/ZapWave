@@ -270,9 +270,11 @@ tela por tela. São use-cases novos — não exigem mexer nos use-cases que já 
 | ~~Membros de uma sala~~ | **feito**: `GET /rooms/:id/members` (`FetchRoomMembersUseCase`) — cada item é `UserSummaryDto` + `role`, com o `id` do **usuário** (casa com o `senderId` das mensagens e com o `targetUserId` do remove-member); owner, admins, members e alfabético dentro de cada papel. Só membro vê: quem não é membro recebe **404**, igual a sala inexistente, pra não confirmar que o id existe | — |
 | Meus devices | `DevicesRepository.findManyByUserId` | use-case + controller; é dele que o usuário pega o `deviceId` pra usar no `revoke-device` |
 
-**Recusar convite de sala.** O enum `StatusRoomInvite` já tem `DECLINED` e o fluxo de
-"Convidar para sala" (§7) descreve a recusa, mas não existe use-case: hoje o convidado só
-consegue aceitar. Falta o `decline-room-invite` (só o próprio convidado, só se `PENDING`).
+~~**Recusar convite de sala.**~~ **Feito**: `POST /room-invite-decline` `{ inviteId }` → 204
+(`DeclineRoomInviteUseCase`): só o próprio convidado, só se `PENDING`; grava `DECLINED` +
+`respondedAt`, sem notificação. **Em aberto:** a unique `(conversationId, inviteeId)` faz o
+convite recusado bloquear um novo convite pra mesma pessoa na mesma sala (o `invite-to-room`
+devolve 409) — decidir se reconvidar reaproveita o convite (volta pra `PENDING`) ou se fica assim.
 
 **Texto das notificações.** Os subscribers montam o `content` com o **id cru** de quem
 agiu ("`<uuid>` te enviou um pedido de amizade"). Serve pra provar o fluxo, não pra tela:

@@ -57,6 +57,8 @@ import { FetchRoomInvitesController } from './controllers/rooms/fetch-room-invit
 import { FetchRoomInvitesUseCase } from '@/domain/rooms/applications/use-cases/fetch-room-invites'
 import { FetchRoomMembersController } from './controllers/rooms/fetch-room-members.controller'
 import { FetchRoomMembersUseCase } from '@/domain/rooms/applications/use-cases/fetch-room-members'
+import { DeclineRoomInviteController } from './controllers/rooms/decline-room-invite.controller'
+import { DeclineRoomInviteUseCase } from '@/domain/rooms/applications/use-cases/decline-room-invite'
 
 @Module({
   // WebsocketModule: fornece o SessionGateway que o revoke-device usa pra
@@ -82,6 +84,7 @@ import { FetchRoomMembersUseCase } from '@/domain/rooms/applications/use-cases/f
     CreateRoomController,
     InviteToRoomController,
     AcceptRoomInviteController,
+    DeclineRoomInviteController,
     LeaveRoomController,
     RemoveMemberController,
     FetchMyRoomsController,
@@ -111,6 +114,7 @@ import { FetchRoomMembersUseCase } from '@/domain/rooms/applications/use-cases/f
     CreateRoomUseCase,
     InviteToRoomUseCase,
     AcceptRoomInviteUseCase,
+    DeclineRoomInviteUseCase,
     LeaveRoomUseCase,
     RemoveMemberUseCase,
     FetchMyRoomsUseCase,

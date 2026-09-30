@@ -64,6 +64,12 @@ export class RoomInvite extends AggregateRoot<RoomInviteProps> {
     this.addDomainEvent(new RoomInviteAcceptedEvent(this))
   }
 
+  // Sem evento de domínio: recusar não notifica quem convidou (docs/03 §5)
+  decline() {
+    this.props.status = 'declined'
+    this.props.respondedAt = new Date()
+  }
+
   static create(
     props: Optional<RoomInviteProps, 'createdAt' | 'respondedAt'>,
     id?: UniqueEntityId
