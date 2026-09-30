@@ -243,7 +243,7 @@ fase posterior.
 |------|----------------|
 | Conta | Cadastro, Login, **Logout / revogar sessão** |
 | Amizade | Enviar pedido, **Aceitar / recusar** pedido |
-| Sala | Criar sala, Convidar (admin), Remover membro (admin), **Sair da sala** |
+| Sala | Criar sala, Convidar (admin), Remover membro (admin), Promover / rebaixar admin (owner), **Sair da sala** |
 | Conversa | Conversar no privado (DM), Conversar em sala |
 | Tempo real | **Presença / visto por último**, **Recibos ✓ (entregue) / ✓✓ (lida)**, **Reconexão / resume** |
 | Histórico | Paginação / scroll infinito (stream — [doc 01](./01-streams.md), Lugar 2) |
@@ -347,6 +347,15 @@ Convidado recusa → `RoomInvite.status=declined`.
 Remover (`remove-member`): `owner`/`admin` apaga a linha `ConversationMember` do alvo.
 Regras: não dá pra remover a si mesmo (isso é `leave-room`); o `owner` nunca é removido;
 `admin` só remove `member` (não outro `admin` nem o `owner`); `owner` remove qualquer um.
+
+Promover (`promote-to-admin`, `PUT /room-promote-admin` `{ conversationId, targetUserId }` → 204):
+**só o `owner`** muda `member` → `admin`. Admin não promove porque criaria admins que ele mesmo
+não consegue remover. O alvo tem que ser membro; o `owner` não muda de papel; promover quem já é
+`admin` é no-op com sucesso (clique duplo não vira erro).
+
+Rebaixar (`demote-admin`, `PUT /room-demote-admin`, mesmo body → 204): espelho do promover —
+**só o `owner`** muda `admin` → `member`; o `owner` não muda de papel; rebaixar quem já é
+`member` é no-op com sucesso. Os poderes caem na hora: a próxima ação de admin dele já dá 401.
 Sair (`leave-room`): o próprio membro apaga sua linha.
 **Decisão:** o `owner` **não pode sair** — recebe `NotAllowedError`. Transferir dono é um
 use-case à parte que ainda não existe; enquanto não existir, a saída fica bloqueada.
