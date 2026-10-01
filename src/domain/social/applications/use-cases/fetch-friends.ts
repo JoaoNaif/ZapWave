@@ -7,6 +7,7 @@ import { Presence } from '@/domain/chat/applications/gateways/presence'
 import { ConversationRepository } from '@/domain/chat/applications/repositories/conversation-repository'
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
 import { MessageRepository } from '@/domain/chat/applications/repositories/message-repository'
+import { LastMessagePreviewMapper } from '@/domain/chat/applications/mappers/last-message-preview-mapper'
 import { Conversation } from '@/domain/chat/entities/conversation'
 import { FriendDto } from '../dtos/friend-dto'
 
@@ -42,19 +43,26 @@ export class FetchFriendsUseCase {
       return right({ friends: [] })
     }
 
-    const [users, dms, memberships] = await Promise.all([
-      this.userRepository.findManyByIds(friendIds),
+    // eu vou junto: a última mensagem da DM pode ser minha, e a prévia
+    // precisa do meu displayName
+    const [usersAndMe, dms, memberships] = await Promise.all([
+      this.userRepository.findManyByIds([...friendIds, userId]),
       this.conversationRepository.findManyByDmKeys(
         friendIds.map((friendId) => Conversation.dmKeyFor(userId, friendId))
       ),
       this.conversationMemberRepository.findManyByUserId(userId),
     ])
 
+    const users = usersAndMe.filter((user) => user.id.toString() !== userId)
+    const displayNameByUserId = new Map(
+      usersAndMe.map((user) => [user.id.toString(), user.displayName])
+    )
+
     const dmIds = new Set(dms.map((dm) => dm.id.toString()))
 
-    // o cursor de leitura é do MEU membro em cada DM
-    const unreadCountByDmId =
-      await this.messageRepository.countUnreadByConversation(
+    const [unreadCountByDmId, lastMessages] = await Promise.all([
+      // o cursor de leitura é do MEU membro em cada DM
+      this.messageRepository.countUnreadByConversation(
         userId,
         memberships
           .filter((membership) =>
@@ -65,7 +73,19 @@ export class FetchFriendsUseCase {
             lastReadMessageId: membership.lastReadMessageId?.toString() ?? null,
             joinedAt: membership.joinedAt,
           }))
-      )
+      ),
+      this.messageRepository.findManyLastByConversationIds([...dmIds]),
+    ])
+
+    const lastMessageByDmId = new Map(
+      lastMessages.map((message) => [
+        message.conversationId.toString(),
+        LastMessagePreviewMapper.toDto(
+          message,
+          displayNameByUserId.get(message.senderId.toString()) ?? ''
+        ),
+      ])
+    )
 
     const dmByDmKey = new Map(dms.map((dm) => [dm.dmKey, dm]))
 
@@ -79,6 +99,9 @@ export class FetchFriendsUseCase {
           ...UserMapper.toSummaryDto(user),
           online: await this.presence.isOnline(user.id.toString()),
           lastMessageAt: dm?.lastMessageAt ?? null,
+          lastMessage: dm
+            ? (lastMessageByDmId.get(dm.id.toString()) ?? null)
+            : null,
           unreadCount: dm ? (unreadCountByDmId.get(dm.id.toString()) ?? 0) : 0,
         }
       })

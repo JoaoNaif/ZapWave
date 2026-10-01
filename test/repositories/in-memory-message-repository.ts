@@ -50,6 +50,27 @@ export class InMemoryMessageRepository implements MessageRepository {
       .slice(0, limit)
   }
 
+  async findManyLastByConversationIds(
+    conversationIds: string[]
+  ): Promise<Message[]> {
+    const lastByConversationId = new Map<string, Message>()
+
+    for (const item of this.items) {
+      const conversationId = item.conversationId.toString()
+
+      if (!conversationIds.includes(conversationId)) continue
+
+      const current = lastByConversationId.get(conversationId)
+
+      // ids são ULID: o maior é o mais novo
+      if (!current || item.id.toString() > current.id.toString()) {
+        lastByConversationId.set(conversationId, item)
+      }
+    }
+
+    return [...lastByConversationId.values()]
+  }
+
   async countUnreadByConversation(
     userId: string,
     cursors: UnreadCursor[]

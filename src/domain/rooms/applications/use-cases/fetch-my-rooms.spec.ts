@@ -3,6 +3,8 @@ import { FetchMyRoomsUseCase } from './fetch-my-rooms'
 import { InMemoryConversationRepository } from 'test/repositories/in-memory-conversation-repository'
 import { InMemoryConversationMemberRepository } from 'test/repositories/in-memory-conversation-member-repository'
 import { InMemoryMessageRepository } from 'test/repositories/in-memory-message-repository'
+import { InMemoryUserRepository } from 'test/repositories/in-memory-user-repository'
+import { makeUser } from 'test/factories/make-user'
 import { makeMessage } from 'test/factories/make-message'
 import { makeConversation } from 'test/factories/make-conversation'
 import { makeConversationMember } from 'test/factories/make-conversation-member'
@@ -11,6 +13,7 @@ import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 let inMemoryConversationRepository: InMemoryConversationRepository
 let inMemoryConversationMemberRepository: InMemoryConversationMemberRepository
 let inMemoryMessageRepository: InMemoryMessageRepository
+let inMemoryUserRepository: InMemoryUserRepository
 
 let sut: FetchMyRoomsUseCase
 
@@ -20,11 +23,13 @@ describe('Fetch My Rooms', () => {
     inMemoryConversationMemberRepository =
       new InMemoryConversationMemberRepository()
     inMemoryMessageRepository = new InMemoryMessageRepository()
+    inMemoryUserRepository = new InMemoryUserRepository()
 
     sut = new FetchMyRoomsUseCase(
       inMemoryConversationRepository,
       inMemoryConversationMemberRepository,
-      inMemoryMessageRepository
+      inMemoryMessageRepository,
+      inMemoryUserRepository
     )
   })
 
@@ -64,6 +69,7 @@ describe('Fetch My Rooms', () => {
           role: 'owner',
           memberCount: 3,
           lastMessageAt: null,
+          lastMessage: null,
           unreadCount: 0,
         },
       ])
@@ -239,5 +245,48 @@ describe('Fetch My Rooms', () => {
         expect(result.value.rooms[0].unreadCount).toBe(1)
       }
     })
+  })
+
+  it('should bring a preview of the last message with the sender name', async () => {
+    await inMemoryConversationRepository.create(
+      makeConversation(
+        { type: 'room', name: 'g' },
+        new UniqueEntityId('room-1')
+      )
+    )
+    await addMember('room-1', 'user-1')
+    await inMemoryUserRepository.create(
+      makeUser({ displayName: 'Bruno' }, new UniqueEntityId('user-2'))
+    )
+
+    for (const [id, body] of [
+      ['msg-01', 'primeira'],
+      ['msg-02', 'x'.repeat(150)],
+    ]) {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          {
+            conversationId: new UniqueEntityId('room-1'),
+            senderId: new UniqueEntityId('user-2'),
+            body,
+          },
+          new UniqueEntityId(id)
+        )
+      )
+    }
+
+    const result = await sut.execute({ userId: 'user-1' })
+
+    expect(result.isRight()).toBe(true)
+    if (result.isRight()) {
+      expect(result.value.rooms[0].lastMessage).toEqual({
+        id: 'msg-02',
+        senderId: 'user-2',
+        senderDisplayName: 'Bruno',
+        // cortada em 100 + reticências
+        body: 'x'.repeat(100) + '…',
+        createdAt: expect.any(Date),
+      })
+    }
   })
 })

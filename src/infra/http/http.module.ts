@@ -57,6 +57,8 @@ import { FetchRoomInvitesController } from './controllers/rooms/fetch-room-invit
 import { FetchRoomInvitesUseCase } from '@/domain/rooms/applications/use-cases/fetch-room-invites'
 import { FetchRoomMembersController } from './controllers/rooms/fetch-room-members.controller'
 import { FetchRoomMembersUseCase } from '@/domain/rooms/applications/use-cases/fetch-room-members'
+import { FetchConversationReadsController } from './controllers/chat/fetch-conversation-reads.controller'
+import { FetchConversationReadsUseCase } from '@/domain/chat/applications/use-cases/fetch-conversation-reads'
 import { DeclineRoomInviteController } from './controllers/rooms/decline-room-invite.controller'
 import { DeclineRoomInviteUseCase } from '@/domain/rooms/applications/use-cases/decline-room-invite'
 import { PromoteToAdminController } from './controllers/rooms/promote-to-admin.controller'
@@ -98,6 +100,7 @@ import { DemoteAdminUseCase } from '@/domain/rooms/applications/use-cases/demote
     FetchRoomMembersController,
     FetchConversationHistoryController,
     MarkConversationReadController,
+    FetchConversationReadsController,
     OpenDirectConversationController,
     SendMessageController,
     AckMessageDeliveryController,
@@ -130,6 +133,7 @@ import { DemoteAdminUseCase } from '@/domain/rooms/applications/use-cases/demote
     FetchRoomMembersUseCase,
     FetchConversationHistoryUseCase,
     MarkConversationReadUseCase,
+    FetchConversationReadsUseCase,
     OpenDirectConversationUseCase,
     SendMessageUseCase,
     AckMessageDeliveryUseCase,

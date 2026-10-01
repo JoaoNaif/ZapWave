@@ -22,6 +22,12 @@ export abstract class MessageRepository {
     params: { before?: string; limit: number }
   ): Promise<Message[]>
 
+  // a mais recente de cada conversa, numa consulta só. Conversa sem mensagem
+  // fica fora da lista.
+  abstract findManyLastByConversationIds(
+    conversationIds: string[]
+  ): Promise<Message[]>
+
   // mensagens dos OUTROS depois do cursor, por conversa, numa consulta só.
   // Conversa sem nenhuma não lida fica fora do Map.
   abstract countUnreadByConversation(

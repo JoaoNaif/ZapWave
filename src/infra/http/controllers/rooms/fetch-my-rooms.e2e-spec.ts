@@ -90,6 +90,7 @@ describe('Fetch My Rooms (e2e)', () => {
           role: 'owner',
           memberCount: 2,
           lastMessageAt: null,
+          lastMessage: null,
           unreadCount: 0,
         },
       ],
@@ -157,6 +158,9 @@ describe('Fetch My Rooms (e2e)', () => {
 
     const beforeRead = await member.agent.get('/rooms')
     expect(beforeRead.body.rooms[0].unreadCount).toBe(2)
+    expect(beforeRead.body.rooms[0].lastMessage).toEqual(
+      expect.objectContaining({ senderId: owner.userId, body: 'depois 2' })
+    )
 
     await member.agent
       .put('/mark-conversation')

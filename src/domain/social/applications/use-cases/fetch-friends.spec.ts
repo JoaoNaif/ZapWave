@@ -244,6 +244,7 @@ describe('Fetch Friends', () => {
       expect(Object.keys(result.value.friends[0]).sort()).toEqual([
         'displayName',
         'id',
+        'lastMessage',
         'lastMessageAt',
         'online',
         'unreadCount',
@@ -307,6 +308,63 @@ describe('Fetch Friends', () => {
         expect.objectContaining({ id: 'friend-1', unreadCount: 2 }),
         expect.objectContaining({ id: 'friend-2', unreadCount: 0 }),
       ])
+    }
+  })
+
+  it('should bring a preview of the last message of the DM, even if it is mine', async () => {
+    await inMemoryUserRepository.create(
+      makeUser({ displayName: 'Eu' }, new UniqueEntityId('user-1'))
+    )
+    await inMemoryUserRepository.create(
+      makeUser({ displayName: 'Ana' }, new UniqueEntityId('friend-1'))
+    )
+    await inMemoryFriendshipRepository.create(
+      makeFriendship({
+        senderId: 'user-1',
+        recipientId: 'friend-1',
+        status: 'accepted',
+      })
+    )
+    await inMemoryConversationRepository.create(
+      makeConversation(
+        { type: 'dm', dmKey: Conversation.dmKeyFor('user-1', 'friend-1') },
+        new UniqueEntityId('dm-1')
+      )
+    )
+    await inMemoryMessageRepository.create(
+      makeMessage(
+        {
+          conversationId: new UniqueEntityId('dm-1'),
+          senderId: new UniqueEntityId('friend-1'),
+          body: 'oi',
+        },
+        new UniqueEntityId('msg-01')
+      )
+    )
+    await inMemoryMessageRepository.create(
+      makeMessage(
+        {
+          conversationId: new UniqueEntityId('dm-1'),
+          senderId: new UniqueEntityId('user-1'),
+          body: 'tudo bem?',
+        },
+        new UniqueEntityId('msg-02')
+      )
+    )
+
+    const result = await sut.execute({ userId: 'user-1' })
+
+    expect(result.isRight()).toBe(true)
+    if (result.isRight()) {
+      // eu não apareço como amigo de mim mesmo
+      expect(result.value.friends).toHaveLength(1)
+      expect(result.value.friends[0].lastMessage).toEqual({
+        id: 'msg-02',
+        senderId: 'user-1',
+        senderDisplayName: 'Eu',
+        body: 'tudo bem?',
+        createdAt: expect.any(Date),
+      })
     }
   })
 })

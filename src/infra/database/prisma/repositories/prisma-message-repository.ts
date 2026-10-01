@@ -4,6 +4,7 @@ import {
 } from '@/domain/chat/applications/repositories/message-repository'
 import { Message } from '@/domain/chat/entities/message'
 import { Injectable } from '@nestjs/common'
+import { Message as PrismaMessage } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 import { PrismaMessageMapper } from '../mappers/prisma-message-mapper'
 
@@ -58,6 +59,31 @@ export class PrismaMessageRepository implements MessageRepository {
       orderBy: { id: 'desc' },
       take: limit,
     })
+
+    return messages.map(PrismaMessageMapper.toDomain)
+  }
+
+  async findManyLastByConversationIds(
+    conversationIds: string[]
+  ): Promise<Message[]> {
+    if (conversationIds.length === 0) return []
+
+    // DISTINCT ON fica com a primeira linha de cada conversa na ordem do
+    // ORDER BY — a de maior id (ULID = mais nova). Anda no índice
+    // (conversationId, id). O `distinct` do Prisma não serve: ele traz tudo e
+    // deduplica na engine, ou seja, leria o histórico inteiro.
+    const messages = await this.prisma.$queryRaw<PrismaMessage[]>`
+      SELECT DISTINCT ON (conversation_id)
+        id,
+        conversation_id AS "conversationId",
+        sender_id AS "senderId",
+        body,
+        client_message_id AS "clientMessageId",
+        created_at AS "createdAt"
+      FROM messages
+      WHERE conversation_id = ANY(${conversationIds})
+      ORDER BY conversation_id, id DESC
+    `
 
     return messages.map(PrismaMessageMapper.toDomain)
   }

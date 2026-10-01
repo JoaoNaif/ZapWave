@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common'
 import { ConversationRepository } from '@/domain/chat/applications/repositories/conversation-repository'
 import { ConversationMemberRepository } from '@/domain/chat/applications/repositories/conversation-member-repository'
 import { MessageRepository } from '@/domain/chat/applications/repositories/message-repository'
+import { LastMessagePreviewMapper } from '@/domain/chat/applications/mappers/last-message-preview-mapper'
+import { UserRepository } from '@/domain/accounts/applications/repositories/user-repository'
 import { MyRoomDto } from '../dtos/my-room-dto'
 
 interface FetchMyRoomsReq {
@@ -16,7 +18,8 @@ export class FetchMyRoomsUseCase {
   constructor(
     private conversationRepository: ConversationRepository,
     private conversationMemberRepository: ConversationMemberRepository,
-    private messageRepository: MessageRepository
+    private messageRepository: MessageRepository,
+    private userRepository: UserRepository
   ) {}
 
   async execute({ userId }: FetchMyRoomsReq): Promise<FetchMyRoomsRes> {
@@ -49,26 +52,46 @@ export class FetchMyRoomsUseCase {
 
     const roomIds = rooms.map((room) => room.id.toString())
 
-    const [memberCountByRoomId, unreadCountByRoomId] = await Promise.all([
-      this.conversationMemberRepository.countManyByConversationIds(roomIds),
-      this.messageRepository.countUnreadByConversation(
-        userId,
-        roomIds.flatMap((roomId) => {
-          const membership = membershipByConversationId.get(roomId)
+    const [memberCountByRoomId, lastMessages, unreadCountByRoomId] =
+      await Promise.all([
+        this.conversationMemberRepository.countManyByConversationIds(roomIds),
+        this.messageRepository.findManyLastByConversationIds(roomIds),
+        this.messageRepository.countUnreadByConversation(
+          userId,
+          roomIds.flatMap((roomId) => {
+            const membership = membershipByConversationId.get(roomId)
 
-          if (!membership) return []
+            if (!membership) return []
 
-          return [
-            {
-              conversationId: roomId,
-              lastReadMessageId:
-                membership.lastReadMessageId?.toString() ?? null,
-              joinedAt: membership.joinedAt,
-            },
-          ]
-        })
-      ),
+            return [
+              {
+                conversationId: roomId,
+                lastReadMessageId:
+                  membership.lastReadMessageId?.toString() ?? null,
+                joinedAt: membership.joinedAt,
+              },
+            ]
+          })
+        ),
+      ])
+
+    // em sala, quem mandou pode ser qualquer membro (ou ex-membro)
+    const senders = await this.userRepository.findManyByIds([
+      ...new Set(lastMessages.map((message) => message.senderId.toString())),
     ])
+    const displayNameByUserId = new Map(
+      senders.map((sender) => [sender.id.toString(), sender.displayName])
+    )
+
+    const lastMessageByRoomId = new Map(
+      lastMessages.map((message) => [
+        message.conversationId.toString(),
+        LastMessagePreviewMapper.toDto(
+          message,
+          displayNameByUserId.get(message.senderId.toString()) ?? ''
+        ),
+      ])
+    )
 
     // última atividade primeiro: a última mensagem ou, se a sala ainda não
     // tem nenhuma, a criação — assim a sala recém-criada aparece no topo
@@ -94,6 +117,7 @@ export class FetchMyRoomsUseCase {
             role: membership.role,
             memberCount: memberCountByRoomId.get(roomId) ?? 0,
             lastMessageAt: room.lastMessageAt,
+            lastMessage: lastMessageByRoomId.get(roomId) ?? null,
             unreadCount: unreadCountByRoomId.get(roomId) ?? 0,
           },
         ]

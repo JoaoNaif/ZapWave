@@ -259,6 +259,21 @@ inteira (`MessageRepository.countUnreadByConversation`, `groupBy` com um ramo do
 conversa). O número só vem no HTTP: em tempo real o front soma ao receber mensagem pelo WS e
 zera ao abrir a conversa (chamando `PUT /mark-conversation` com a última mensagem).
 
+**Prévia da última mensagem.** `lastMessage` em cada item de `/friends` e `/rooms`:
+`{ id, senderId, senderDisplayName, body, createdAt } | null`. `body` é cortado em 100
+code points (com `…` quando corta); `senderDisplayName` vai junto porque a lista de salas
+não traz os membros. A busca é uma consulta só (`MessageRepository.findManyLastByConversationIds`,
+`SELECT DISTINCT ON (conversation_id) ... ORDER BY conversation_id, id DESC` no índice
+`(conversationId, id)`) — o `distinct` do Prisma não serve porque deduplica na engine, depois
+de trazer todas as linhas.
+
+**Leitura do outro lado (✓✓).** `GET /conversations/:id/reads` → `{ reads: [{ userId,
+lastReadMessageId }] }` (`FetchConversationReadsUseCase`): o cursor de cada **outro** membro,
+`null` se nunca leu; o meu fica de fora. Só membro vê (404 igual a conversa inexistente).
+Minha mensagem está lida por alguém se `id <= lastReadMessageId` dele (ULID). **Limite:** é
+o estado de quando a conversa abre — o `mark-conversation` não manda nada pelo WS, então o
+✓✓ não acende ao vivo. Para isso falta um frame `read` no WS (pendente).
+
 **Listagens de leitura.** O que o app já **escreve** está completo (criar, convidar,
 aceitar, enviar...), mas quase nada permite **ler** a lista de volta. Isso é proposital:
 o formato de cada listagem (quais campos, ordenação, paginação, o que vem embutido) depende
@@ -267,9 +282,9 @@ tela por tela. São use-cases novos — não exigem mexer nos use-cases que já 
 
 | Listagem | O que já existe | O que falta |
 |----------|-----------------|-------------|
-| ~~Meus grupos~~ | **feito**: `GET /rooms` (`FetchMyRoomsUseCase`, contexto `rooms`) — só `type = room` em que o usuário é membro; cada item traz `id`, `name`, `role` (de quem pediu), `memberCount`, `lastMessageAt` e `unreadCount`; ordena pela última atividade (`lastMessageAt`, ou `createdAt` se a sala não tem mensagem). Sem paginação | — |
+| ~~Meus grupos~~ | **feito**: `GET /rooms` (`FetchMyRoomsUseCase`, contexto `rooms`) — só `type = room` em que o usuário é membro; cada item traz `id`, `name`, `role` (de quem pediu), `memberCount`, `lastMessageAt`, `lastMessage` (prévia) e `unreadCount`; ordena pela última atividade (`lastMessageAt`, ou `createdAt` se a sala não tem mensagem). Sem paginação | — |
 | Minhas conversas (DMs + salas) | `ConversationMemberRepository.findManyByUserId` | use-case + controller; decidir o que cada item traz (nome da sala ou o outro participante da DM, última mensagem, contador de não lidas) |
-| ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence), `lastMessageAt` e `unreadCount` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
+| ~~Meus amigos~~ | **feito**: `GET /friends` (`FetchFriendsUseCase`) — amizades `ACCEPTED` nas duas pontas, com `online` (Presence), `lastMessageAt`, `lastMessage` (prévia) e `unreadCount` da DM; ordena pela última mensagem trocada, quem nunca conversou vai pro fim em ordem alfabética. Sem paginação | — |
 | ~~Pedidos de amizade pendentes~~ | **feito (só os recebidos)**: `GET /friend-requests` (`FetchFriendRequestsUseCase`) — cada item traz `friendshipId` (o que o accept/decline exigem), `sender` (`id`, `username`, `displayName`, embutido porque não há rota de usuário por id) e `createdAt`; mais recente primeiro. Os **enviados** ainda não têm listagem | listar os pedidos enviados, se a tela precisar |
 | ~~Convites de sala pendentes (do convidado)~~ | **feito**: `GET /room-invites` (`FetchRoomInvitesUseCase`) — cada item traz `inviteId` (o que o `accept-room-invite` exige), `room` (`id`, `name`), `inviter` (`id`, `username`, `displayName`) e `createdAt`; mais recente primeiro. O método antigo `findManyByIviteeIdWithStausPending` (sem uso) virou `findManyPendingByInviteeId` | — |
 | ~~Membros de uma sala~~ | **feito**: `GET /rooms/:id/members` (`FetchRoomMembersUseCase`) — cada item é `UserSummaryDto` + `role`, com o `id` do **usuário** (casa com o `senderId` das mensagens e com o `targetUserId` do remove-member); owner, admins, members e alfabético dentro de cada papel. Só membro vê: quem não é membro recebe **404**, igual a sala inexistente, pra não confirmar que o id existe | — |
