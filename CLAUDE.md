@@ -171,7 +171,7 @@ Backend funcional de ponta a ponta; o frontend está sendo construído em `../Fr
 - **Escritas atômicas:** DM (`dmKey` unique), criação de sala e aceite de convite gravam
   tudo-ou-nada; convite tem unique `(conversationId, inviteeId)`.
 - **Endurecimento feito:** helmet, CORS só localhost, rate limit, checagem de `Origin` no WS,
-  índices nas consultas principais. CI **não** foi implementado (decisão do usuário).
+  índices nas consultas principais. CI no GitHub Actions (`.github/workflows/ci.yml`: build + unit + e2e com Postgres/Redis); CD não existe (sem deploy por ora).
 
 **Pendências conhecidas** (detalhes em [`docs/03`](./docs/03-entidades.md) §6):
 listagens de leitura que faltam (minhas conversas, pedidos de amizade enviados, meus devices)
