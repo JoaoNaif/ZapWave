@@ -141,7 +141,7 @@ describe('Ack Message Delivery (e2e)', () => {
     expect(response.body).toEqual({ acknowledged: true })
   })
 
-  test('deleting the acked message keeps the device and clears its cursor', async () => {
+  test('deleting the acked message keeps the device and its cursor (the cursor has no FK: it can be an event id)', async () => {
     const { owner, messageIds } = await createRoomWithMessages(1)
 
     await owner.agent
@@ -155,7 +155,7 @@ describe('Ack Message Delivery (e2e)', () => {
     })
 
     expect(device).not.toBeNull()
-    expect(device?.resumeCursorId).toBeNull()
+    expect(device?.resumeCursorId).toBe(messageIds[0])
   })
 
   test('[PUT] /message-ack without a token fails', async () => {

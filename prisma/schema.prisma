@@ -112,21 +112,20 @@ model ConversationMember {
 }
 
 model Message {
-  id              String   @id @default(ulid())
-  conversationId  String   @map("conversation_id")
-  senderId        String   @map("sender_id")
+  id              String    @id @default(ulid())
+  conversationId  String    @map("conversation_id")
+  senderId        String    @map("sender_id")
   body            String
-  clientMessageId String?  @map("client_message_id")
-  replyToId       String?  @map("reply_to_id")
+  clientMessageId String?   @map("client_message_id")
+  replyToId       String?   @map("reply_to_id")
   editedAt        DateTime? @map("edited_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   conversation        Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender              User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
   // resposta a outra mensagem; se a original for apagada a resposta fica
   replyTo             Message?             @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies             Message[]            @relation("MessageReplies")
-  devices             Device[]
   conversationMembers ConversationMember[]
 
   // idempotência do envio: reenviar o mesmo clientMessageId (retry) não cria
@@ -144,11 +143,12 @@ model Device {
   name           String?
   createdAt      DateTime  @default(now()) @map("created_at")
   lastSeenAt     DateTime  @default(now()) @map("last_seen_at")
+  // até onde o device já confirmou: id de mensagem OU de evento de edição/
+  // remoção (ULID, ordenável). Sem FK de propósito — nem sempre é um messages.id.
   resumeCursorId String?   @map("resume_cursor_id")
   revokedAt      DateTime? @map("revoked_at")
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resumeCursor Message? @relation(fields: [resumeCursorId], references: [id], onDelete: SetNull)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // devices de um usuário (listagem e entrega da mensagem a todos os devices)
   @@index([userId])
