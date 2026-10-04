@@ -53,6 +53,16 @@ export class PrismaConversationMemberRepository implements ConversationMemberRep
     )
   }
 
+  async findManyByLastReadMessageId(
+    messageId: string
+  ): Promise<ConversationMember[]> {
+    const conversationMembers = await this.prisma.conversationMember.findMany({
+      where: { lastReadMessageId: messageId },
+    })
+
+    return conversationMembers.map(PrismaConversationMemberMapper.toDomain)
+  }
+
   async findByUserWithConversationId(
     userId: string,
     conversationId: string

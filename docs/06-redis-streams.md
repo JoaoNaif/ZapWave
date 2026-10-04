@@ -87,6 +87,25 @@ sem ganho real na escala do projeto. Se algum dia o inbox de um device ficar eno
 (device offline por semanas), o gargalo está em outro lugar (ver `MAXLEN` abaixo) antes de
 chegar aqui.
 
+### 4.1 Edição e remoção de mensagem: eventos no mesmo inbox
+
+O inbox do device não carrega só mensagens novas: `PATCH /message/:id` e
+`DELETE /message/:id` publicam um **evento** em cada device (mesmo fan-out do envio), via
+`MessageStream.publishEvent()`. O port fala em `StreamEvent` (`message`, `message-edited`,
+`message-deleted`), e `subscribe`/`replayFrom` devolvem eventos, não `Message`.
+
+A chave de ordenação e de ack de uma entrada é o **`id` do evento**: numa mensagem nova é o
+id dela; numa edição/remoção é um **ULID novo, gerado na hora do evento**. Isso é o que
+mantém o resto deste doc valendo sem exceção — o ack cumulativo (`eventId <= confirmado`) e
+o cursor de replay (`Device.resumeCursorId`) ordenam tudo por tempo, e uma edição de uma
+mensagem antiga não é pulada nem apagada por engano. No Redis, a entrada ganha `type` e
+`eventId`; entrada sem `type` (formato anterior) é mensagem nova.
+
+Limites assumidos: o preview de resposta (`replyTo`) é um snapshot do envio, então uma
+resposta já entregue continua mostrando o texto antigo da original editada; e um device
+offline além da janela do `MAXLEN` perde o evento — o front refaz o `GET
+/conversation-history` ao reconectar de qualquer forma.
+
 ## 5. `MAXLEN` — Redis é janela, não histórico
 
 `XADD` usa `MAXLEN ~ 1000`: cada inbox guarda no máximo ~1000 mensagens (trim

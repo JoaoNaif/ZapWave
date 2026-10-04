@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryMessageStream } from './in-memory-message-stream'
 import { makeMessage } from 'test/factories/make-message'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-import { Message } from '@/domain/chat/entities/message'
 
 let sut: InMemoryMessageStream
 
@@ -13,7 +12,7 @@ function makeMessageWithId(id: string) {
   )
 }
 
-async function collect(iterable: AsyncIterable<Message>) {
+async function collect(iterable: AsyncIterable<{ id: string }>) {
   const ids: string[] = []
 
   for await (const message of iterable) {

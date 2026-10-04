@@ -11,6 +11,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest'
 
 type ServerFrame =
   | { type: 'message'; message: { id: string; body: string } }
+  | {
+      type: 'message-edited'
+      eventId: string
+      message: { id: string; body: string; editedAt: string }
+    }
+  | {
+      type: 'message-deleted'
+      eventId: string
+      messageId: string
+      conversationId: string
+    }
   | { type: 'ack-result'; messageId: string; acknowledged: boolean }
 
 describe('Chat Gateway (e2e)', () => {
@@ -271,6 +282,73 @@ describe('Chat Gateway (e2e)', () => {
         }),
       },
     ])
+  })
+
+  test('delivers an edit and a removal to the connected device in real time', async () => {
+    const owner = await createSession()
+    const roomId = await createRoom(owner)
+
+    const { socket, received } = connect(owner.cookie, owner.deviceId)
+    await waitForOpen(socket)
+
+    const sent = await owner.agent
+      .post('/message')
+      .send({ conversationId: roomId, body: 'oi' })
+    const messageId = sent.body.message.id as string
+
+    await waitUntil(() => received.length >= 1)
+
+    await owner.agent.patch(`/message/${messageId}`).send({ body: 'oi editado' })
+    await waitUntil(() => received.length >= 2)
+
+    await owner.agent.delete(`/message/${messageId}`)
+    await waitUntil(() => received.length >= 3)
+
+    expect(received[1]).toEqual({
+      type: 'message-edited',
+      eventId: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/),
+      message: expect.objectContaining({
+        id: messageId,
+        body: 'oi editado',
+        editedAt: expect.any(String),
+      }),
+    })
+    expect(received[2]).toEqual({
+      type: 'message-deleted',
+      eventId: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/),
+      messageId,
+      conversationId: roomId,
+    })
+  })
+
+  test('replays an edit on reconnect when it was not acknowledged', async () => {
+    const owner = await createSession()
+    const roomId = await createRoom(owner)
+
+    const sent = await owner.agent
+      .post('/message')
+      .send({ conversationId: roomId, body: 'oi' })
+    const messageId = sent.body.message.id as string
+
+    const first = connect(owner.cookie, owner.deviceId)
+    await waitForOpen(first.socket)
+    await waitUntil(() => first.received.length >= 1)
+    sendAck(first.socket, messageId)
+    await waitUntil(() =>
+      first.received.some((frame) => frame.type === 'ack-result')
+    )
+    first.socket.close()
+
+    await owner.agent.patch(`/message/${messageId}`).send({ body: 'editado offline' })
+
+    const second = connect(owner.cookie, owner.deviceId)
+    await waitForOpen(second.socket)
+    await waitUntil(() => second.received.length >= 1)
+
+    expect(second.received[0]).toMatchObject({
+      type: 'message-edited',
+      message: { id: messageId, body: 'editado offline' },
+    })
   })
 
   test('replays on reconnect only the messages not yet acknowledged', async () => {

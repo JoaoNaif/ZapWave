@@ -10,6 +10,7 @@ export class MessageMapper {
       body: message.body,
       clientMessageId: message.clientMessageId?.toString() ?? null,
       replyTo: message.replyTo,
+      editedAt: message.editedAt,
       createdAt: message.createdAt,
     }
   }

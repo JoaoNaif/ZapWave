@@ -80,6 +80,7 @@ describe('Send Message (e2e)', () => {
         body: 'oi, tudo bem?',
         clientMessageId: null,
         replyTo: null,
+        editedAt: null,
         createdAt: expect.any(String),
       },
     })

@@ -52,7 +52,7 @@ describe('Redis Message Stream (e2e)', () => {
     )
   }
 
-  async function collect(iterable: AsyncIterable<{ id: UniqueEntityId }>) {
+  async function collect(iterable: AsyncIterable<{ id: string }>) {
     const ids: string[] = []
 
     for await (const message of iterable) {

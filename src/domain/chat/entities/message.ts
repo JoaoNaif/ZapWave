@@ -19,6 +19,7 @@ export interface MessageProps {
   clientMessageId: UniqueEntityId | null
   replyToId: UniqueEntityId | null
   replyTo: MessageReplyPreview | null
+  editedAt: Date | null
   createdAt: Date
 }
 
@@ -67,12 +68,26 @@ export class Message extends Entity<MessageProps> {
     this.props.replyTo = replyTo
   }
 
+  get editedAt() {
+    return this.props.editedAt
+  }
+
+  // trocar o corpo é editar: marca editedAt (a mensagem em si continua com a
+  // mesma data e posição no histórico)
+  edit(body: string) {
+    this.props.body = body
+    this.props.editedAt = new Date()
+  }
+
   get createdAt() {
     return this.props.createdAt
   }
 
   static create(
-    props: Optional<MessageProps, 'createdAt' | 'replyToId' | 'replyTo'>,
+    props: Optional<
+      MessageProps,
+      'createdAt' | 'replyToId' | 'replyTo' | 'editedAt'
+    >,
     id?: UniqueEntityId
   ) {
     const message = new Message(
@@ -80,6 +95,7 @@ export class Message extends Entity<MessageProps> {
         ...props,
         replyToId: props.replyToId ?? null,
         replyTo: props.replyTo ?? null,
+        editedAt: props.editedAt ?? null,
         createdAt: props.createdAt ?? new Date(),
       },
       // ULID em vez do UUID v4 padrão: ordenável por tempo, usado como

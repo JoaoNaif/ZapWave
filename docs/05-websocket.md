@@ -68,6 +68,20 @@ O cliente pode confirmar de dois jeitos, e ambos terminam exatamente no mesmo
   conexão já aberta. O gateway responde com
   `{ "type": "ack-result", "messageId": "...", "acknowledged": boolean }`.
 
+### Frames servidor → cliente
+
+| `type` | Campos | Quando |
+|--------|--------|--------|
+| `message` | `message: MessageDto` | mensagem nova |
+| `message-edited` | `eventId`, `message: MessageDto` (já com `editedAt` e `replyTo`) | `PATCH /message/:id` |
+| `message-deleted` | `eventId`, `messageId`, `conversationId` | `DELETE /message/:id` |
+| `ack-result` | `messageId`, `acknowledged` | resposta a um `ack` |
+
+Para `message-edited` e `message-deleted`, o cliente confirma o **`eventId`** no frame `ack`
+(no campo `messageId`, que é só o nome do campo): é ele a chave de ordenação do inbox, não o
+id da mensagem. Ack de um evento confirma também tudo que veio antes (ver doc 06 §4.1). O
+frame `message` continua sendo confirmado pelo `message.id`.
+
 No caminho WS, `userId` e `deviceId` **não vêm no frame** — já foram resolvidos no
 handshake (§1) e ficam fechados (closure) no listener de `'message'` daquela conexão. O
 cliente não pode alegar ser outro device pelo frame; só o que o handshake já autenticou.

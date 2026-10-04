@@ -90,6 +90,7 @@ export class PrismaMessageRepository implements MessageRepository {
         body,
         client_message_id AS "clientMessageId",
         reply_to_id AS "replyToId",
+        edited_at AS "editedAt",
         created_at AS "createdAt"
       FROM messages
       WHERE conversation_id = ANY(${conversationIds})

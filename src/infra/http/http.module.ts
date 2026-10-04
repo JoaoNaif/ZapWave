@@ -38,6 +38,10 @@ import { MarkConversationReadUseCase } from '@/domain/chat/applications/use-case
 import { OpenDirectConversationController } from './controllers/chat/open-direct-conversation.controller'
 import { OpenDirectConversationUseCase } from '@/domain/chat/applications/use-cases/open-direct-conversation'
 import { SendMessageController } from './controllers/chat/send-message.controller'
+import { EditMessageController } from './controllers/chat/edit-message.controller'
+import { DeleteMessageController } from './controllers/chat/delete-message.controller'
+import { EditMessageUseCase } from '@/domain/chat/applications/use-cases/edit-message'
+import { DeleteMessageUseCase } from '@/domain/chat/applications/use-cases/delete-message'
 import { SendMessageUseCase } from '@/domain/chat/applications/use-cases/send-message'
 import { AckMessageDeliveryController } from './controllers/chat/ack-message-delivery.controller'
 import { AckMessageDeliveryUseCase } from '@/domain/chat/applications/use-cases/ack-message-delivery'
@@ -103,6 +107,8 @@ import { DemoteAdminUseCase } from '@/domain/rooms/applications/use-cases/demote
     FetchConversationReadsController,
     OpenDirectConversationController,
     SendMessageController,
+    EditMessageController,
+    DeleteMessageController,
     AckMessageDeliveryController,
     FetchNotificationsController,
     ReadNotificationController,
@@ -136,6 +142,8 @@ import { DemoteAdminUseCase } from '@/domain/rooms/applications/use-cases/demote
     FetchConversationReadsUseCase,
     OpenDirectConversationUseCase,
     SendMessageUseCase,
+    EditMessageUseCase,
+    DeleteMessageUseCase,
     AckMessageDeliveryUseCase,
     FetchNotificationsUseCase,
     ReadNotificationUseCase,

@@ -10,6 +10,7 @@ import { MessageRepository } from '../repositories/message-repository'
 import { MessageStream } from '../gateways/message-stream'
 import { MessageDto } from '../dtos/message-dto'
 import { MessageMapper } from '../mappers/message-mapper'
+import { findRecipientDeviceIds } from '../helpers/find-recipient-device-ids'
 import { toReplyPreview } from '../mappers/reply-preview-mapper'
 
 interface SendMessageReq {
@@ -101,18 +102,11 @@ export class SendMessageUseCase {
       message.createdAt
     )
 
-    // Fan-out: todo device ativo de todo membro (inclusive os outros devices
-    // de quem enviou) recebe a mensagem no seu inbox.
-    const members =
-      await this.conversationMemberRepository.findManyByConversationId(
-        conversationId
-      )
-    const devices = await this.devicesRepository.findManyByUserIds(
-      members.map((member) => member.userId.toString())
+    const recipientDeviceIds = await findRecipientDeviceIds(
+      this.conversationMemberRepository,
+      this.devicesRepository,
+      conversationId
     )
-    const recipientDeviceIds = devices
-      .filter((device) => !device.isRevoked)
-      .map((device) => device.id.toString())
 
     await this.messageStream.publish(
       conversationId,

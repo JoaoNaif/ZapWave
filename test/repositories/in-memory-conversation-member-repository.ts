@@ -44,6 +44,14 @@ export class InMemoryConversationMemberRepository implements ConversationMemberR
     return counts
   }
 
+  async findManyByLastReadMessageId(
+    messageId: string
+  ): Promise<ConversationMember[]> {
+    return this.items.filter(
+      (item) => item.lastReadMessageId?.toString() === messageId
+    )
+  }
+
   async findByUserWithConversationId(
     userId: string,
     conversationId: string

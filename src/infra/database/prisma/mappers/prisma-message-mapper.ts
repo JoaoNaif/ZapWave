@@ -13,6 +13,7 @@ export class PrismaMessageMapper {
           ? new UniqueEntityId(raw.clientMessageId)
           : null,
         replyToId: raw.replyToId ? new UniqueEntityId(raw.replyToId) : null,
+        editedAt: raw.editedAt,
         createdAt: raw.createdAt,
       },
       new UniqueEntityId(raw.id)
@@ -27,6 +28,7 @@ export class PrismaMessageMapper {
       body: message.body,
       clientMessageId: message.clientMessageId?.toString() ?? null,
       replyToId: message.replyToId?.toString() ?? null,
+      editedAt: message.editedAt,
       createdAt: message.createdAt,
     }
   }

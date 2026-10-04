@@ -10,6 +10,11 @@ export abstract class ConversationMemberRepository {
   abstract countManyByConversationIds(
     conversationIds: string[]
   ): Promise<Map<string, number>>
+  // membros cujo cursor de leitura está exatamente nesta mensagem
+  abstract findManyByLastReadMessageId(
+    messageId: string
+  ): Promise<ConversationMember[]>
+
   abstract findByUserWithConversationId(
     userId: string,
     conversationId: string

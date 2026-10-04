@@ -120,7 +120,7 @@ Mensagem. Imutável.
 | `createdAt` | timestamptz | |
 
 - **Preview da resposta** (`MessageDto.replyTo = { id, senderId, body } | null`, body cortado em 100 chars): só `replyToId` é persistido. No envio, o `SendMessageUseCase` busca a original (já precisa dela para validar) e o preview vai nos campos do `XADD` (`replyToId`/`replyToSenderId`/`replyToBody`), porque o `enrich.transform` é síncrono e sem I/O — o fan-out não consulta nada por device. No histórico, uma consulta em lote (`findManyByIds`) por página. O preview do stream é um snapshot do envio.
-- Sem `editedAt` / `deletedAt` por enquanto (decisão: imutável).
+- **Edição e remoção** (só quem enviou): `PATCH /message/:id` grava `editedAt` e `DELETE /message/:id` apaga a linha (delete de verdade; sem `deletedAt`). Respostas à apagada ficam com `replyTo: null`; quem tinha o cursor de leitura nela tem o cursor recuado para a mensagem anterior (ou `null` se não houver), para o contador de não lidas não saltar. Edição e remoção chegam aos devices como eventos no inbox (ver doc 06 §4.1).
 
 ### 3.6 `Device`
 

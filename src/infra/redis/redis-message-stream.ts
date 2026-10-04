@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { Redis } from 'ioredis'
-import { MessageStream } from '@/domain/chat/applications/gateways/message-stream'
+import {
+  MessageStream,
+  StreamEvent,
+} from '@/domain/chat/applications/gateways/message-stream'
 import { Message } from '@/domain/chat/entities/message'
 import { RedisService } from './redis.service'
 import { RedisMessageMapper } from './mappers/redis-message-mapper'
@@ -35,8 +38,23 @@ export class RedisMessageStream implements MessageStream {
     message: Message,
     recipientDeviceIds: string[]
   ): Promise<void> {
-    const fields = RedisMessageMapper.toFields(message)
+    await this.fanOut(RedisMessageMapper.toFields(message), recipientDeviceIds)
+  }
 
+  async publishEvent(
+    event: Exclude<StreamEvent, { type: 'message' }>,
+    recipientDeviceIds: string[]
+  ): Promise<void> {
+    await this.fanOut(
+      RedisMessageMapper.eventToFields(event),
+      recipientDeviceIds
+    )
+  }
+
+  private async fanOut(
+    fields: string[],
+    recipientDeviceIds: string[]
+  ): Promise<void> {
     await Promise.all(
       recipientDeviceIds.map((deviceId) =>
         this.redis.xadd(
@@ -51,7 +69,7 @@ export class RedisMessageStream implements MessageStream {
     )
   }
 
-  async ack(deviceId: string, messageId: string): Promise<void> {
+  async ack(deviceId: string, eventId: string): Promise<void> {
     const key = inboxKey(deviceId)
 
     await ensureGroup(this.redis, key)
@@ -62,7 +80,7 @@ export class RedisMessageStream implements MessageStream {
     // Device.resumeCursorId no Postgres) — ver docs/06-redis-streams.md §4
     const idsToRemove = entries
       .filter(
-        ([, fields]) => RedisMessageMapper.messageIdOf(fields) <= messageId
+        ([, fields]) => RedisMessageMapper.eventIdOf(fields) <= eventId
       )
       .map(([redisId]) => redisId)
 
@@ -72,7 +90,7 @@ export class RedisMessageStream implements MessageStream {
     await this.redis.xdel(key, ...idsToRemove)
   }
 
-  async *subscribe(deviceId: string): AsyncIterable<Message> {
+  async *subscribe(deviceId: string): AsyncIterable<StreamEvent> {
     const key = inboxKey(deviceId)
     const connection = this.redis.duplicate()
 
@@ -98,7 +116,7 @@ export class RedisMessageStream implements MessageStream {
         const [[, entries]] = result as [string, [string, string[]][]][]
 
         for (const [, fields] of entries) {
-          yield RedisMessageMapper.fieldsToMessage(fields)
+          yield RedisMessageMapper.fieldsToEvent(fields)
         }
       }
     } finally {
@@ -108,8 +126,8 @@ export class RedisMessageStream implements MessageStream {
 
   async *replayFrom(
     deviceId: string,
-    afterMessageId: string | null
-  ): AsyncIterable<Message> {
+    afterEventId: string | null
+  ): AsyncIterable<StreamEvent> {
     const key = inboxKey(deviceId)
     const connection = this.redis.duplicate()
 
@@ -150,12 +168,12 @@ export class RedisMessageStream implements MessageStream {
         : []
 
       for (const [, fields] of [...pendingEntries, ...freshEntries]) {
-        const messageId = RedisMessageMapper.messageIdOf(fields)
+        const eventId = RedisMessageMapper.eventIdOf(fields)
 
         // defensivo: filtra de novo mesmo lendo do PEL (ver docs/06 §3)
-        if (afterMessageId !== null && messageId <= afterMessageId) continue
+        if (afterEventId !== null && eventId <= afterEventId) continue
 
-        yield RedisMessageMapper.fieldsToMessage(fields)
+        yield RedisMessageMapper.fieldsToEvent(fields)
       }
     } finally {
       connection.disconnect()
