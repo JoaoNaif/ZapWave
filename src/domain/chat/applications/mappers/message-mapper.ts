@@ -9,6 +9,7 @@ export class MessageMapper {
       senderId: message.senderId.toString(),
       body: message.body,
       clientMessageId: message.clientMessageId?.toString() ?? null,
+      replyTo: message.replyTo,
       createdAt: message.createdAt,
     }
   }

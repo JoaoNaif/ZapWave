@@ -10,12 +10,14 @@ import { MessageRepository } from '../repositories/message-repository'
 import { MessageStream } from '../gateways/message-stream'
 import { MessageDto } from '../dtos/message-dto'
 import { MessageMapper } from '../mappers/message-mapper'
+import { toReplyPreview } from '../mappers/reply-preview-mapper'
 
 interface SendMessageReq {
   senderId: string
   conversationId: string
   body: string
   clientMessageId?: string
+  replyToId?: string
 }
 
 type SendMessageRes = Either<ResourceNotFoundError, { message: MessageDto }>
@@ -35,6 +37,7 @@ export class SendMessageUseCase {
     conversationId,
     body,
     clientMessageId,
+    replyToId,
   }: SendMessageReq): Promise<SendMessageRes> {
     const membership =
       await this.conversationMemberRepository.findByUserWithConversationId(
@@ -55,7 +58,27 @@ export class SendMessageUseCase {
         )
 
       if (existingMessage) {
+        if (existingMessage.replyToId) {
+          const original = await this.messageRepository.findById(
+            existingMessage.replyToId.toString()
+          )
+
+          if (original) existingMessage.replyTo = toReplyPreview(original)
+        }
+
         return right({ message: MessageMapper.toDto(existingMessage) })
+      }
+    }
+
+    // só dá para responder a mensagem da própria conversa. Mensagem de outra
+    // conversa responde igual a inexistente, para não vazar que ela existe.
+    let original: Message | null = null
+
+    if (replyToId) {
+      original = await this.messageRepository.findById(replyToId)
+
+      if (!original || original.conversationId.toString() !== conversationId) {
+        return left(new ResourceNotFoundError('message'))
       }
     }
 
@@ -66,6 +89,10 @@ export class SendMessageUseCase {
       clientMessageId: clientMessageId
         ? new UniqueEntityId(clientMessageId)
         : null,
+      replyToId: original ? original.id : null,
+      // vai junto no frame do stream: o fan-out entrega o preview pronto, sem
+      // consulta por device
+      replyTo: original ? toReplyPreview(original) : null,
     })
 
     await this.messageRepository.create(message)

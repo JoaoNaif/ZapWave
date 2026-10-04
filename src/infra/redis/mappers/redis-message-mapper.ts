@@ -17,6 +17,13 @@ export class RedisMessageMapper {
       message.body,
       'clientMessageId',
       message.clientMessageId?.toString() ?? '',
+      // preview da mensagem respondida, congelado no envio
+      'replyToId',
+      message.replyTo?.id ?? '',
+      'replyToSenderId',
+      message.replyTo?.senderId ?? '',
+      'replyToBody',
+      message.replyTo?.body ?? '',
       'createdAt',
       message.createdAt.toISOString(),
     ]
@@ -35,6 +42,15 @@ export class RedisMessageMapper {
         body: raw.body,
         clientMessageId: raw.clientMessageId
           ? new UniqueEntityId(raw.clientMessageId)
+          : null,
+        // entradas antigas do stream (sem estes campos) viram mensagem normal
+        replyToId: raw.replyToId ? new UniqueEntityId(raw.replyToId) : null,
+        replyTo: raw.replyToId
+          ? {
+              id: raw.replyToId,
+              senderId: raw.replyToSenderId,
+              body: raw.replyToBody,
+            }
           : null,
         createdAt: new Date(raw.createdAt),
       },

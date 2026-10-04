@@ -11,6 +11,7 @@ export interface UnreadCursor {
 
 export abstract class MessageRepository {
   abstract findById(id: string): Promise<Message | null>
+  abstract findManyByIds(ids: string[]): Promise<Message[]>
   abstract findByClientMessageId(
     conversationId: string,
     senderId: string,

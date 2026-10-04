@@ -51,6 +51,52 @@ describe('Fetch Conversation History', () => {
     }
   })
 
+  it('should return the reply preview of messages that reply to another one', async () => {
+    await inMemoryConversationMemberRepository.create(
+      makeConversationMember({
+        userId: new UniqueEntityId('user-1'),
+        conversationId: new UniqueEntityId('conversation-1'),
+      })
+    )
+
+    await inMemoryMessageRepository.create(
+      makeMessage(
+        {
+          conversationId: new UniqueEntityId('conversation-1'),
+          senderId: new UniqueEntityId('user-2'),
+          body: 'original',
+        },
+        new UniqueEntityId('01-original')
+      )
+    )
+    await inMemoryMessageRepository.create(
+      makeMessage(
+        {
+          conversationId: new UniqueEntityId('conversation-1'),
+          body: 'resposta',
+          replyToId: new UniqueEntityId('01-original'),
+        },
+        new UniqueEntityId('02-reply')
+      )
+    )
+
+    const result = await sut.execute({
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+    })
+
+    expect(result.isRight()).toBe(true)
+    if (result.isRight()) {
+      const [reply, original] = result.value.messages
+      expect(reply.replyTo).toEqual({
+        id: '01-original',
+        senderId: 'user-2',
+        body: 'original',
+      })
+      expect(original.replyTo).toBeNull()
+    }
+  })
+
   it('should return the most recent messages first, limited by the page size', async () => {
     await inMemoryConversationMemberRepository.create(
       makeConversationMember({

@@ -17,6 +17,8 @@ const sendMessageBodySchema = z.object({
   conversationId: z.string().uuid(),
   body: z.string().trim().min(1).max(4000),
   clientMessageId: z.string().uuid().optional(),
+  // id de mensagem é ULID
+  replyToId: z.string().ulid().optional(),
 })
 
 type SendMessageBodySchema = z.infer<typeof sendMessageBodySchema>
@@ -34,13 +36,19 @@ export class SendMessageController {
   ) {
     const userId = user.sub
 
-    const { conversationId, body: messageBody, clientMessageId } = body
+    const {
+      conversationId,
+      body: messageBody,
+      clientMessageId,
+      replyToId,
+    } = body
 
     const result = await this.sendMessage.execute({
       senderId: userId,
       conversationId,
       body: messageBody,
       clientMessageId,
+      replyToId,
     })
 
     if (result.isLeft()) {

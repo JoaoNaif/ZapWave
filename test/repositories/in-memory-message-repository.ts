@@ -17,6 +17,10 @@ export class InMemoryMessageRepository implements MessageRepository {
     return message
   }
 
+  async findManyByIds(ids: string[]): Promise<Message[]> {
+    return this.items.filter((item) => ids.includes(item.id.toString()))
+  }
+
   async findByClientMessageId(
     conversationId: string,
     senderId: string,

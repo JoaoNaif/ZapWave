@@ -3,11 +3,22 @@ import { Entity } from '@/core/entities/entity'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
 
+// Trecho da mensagem respondida, já cortado (ver truncatePreview). Não é
+// persistido: o repositório só guarda replyToId, e quem monta a Message para
+// entregar (envio, histórico, replay do Redis) hidrata este campo.
+export interface MessageReplyPreview {
+  id: string
+  senderId: string
+  body: string
+}
+
 export interface MessageProps {
   conversationId: UniqueEntityId
   senderId: UniqueEntityId
   body: string
   clientMessageId: UniqueEntityId | null
+  replyToId: UniqueEntityId | null
+  replyTo: MessageReplyPreview | null
   createdAt: Date
 }
 
@@ -44,17 +55,31 @@ export class Message extends Entity<MessageProps> {
     this.props.clientMessageId = clientMessageId
   }
 
+  get replyToId() {
+    return this.props.replyToId
+  }
+
+  get replyTo() {
+    return this.props.replyTo
+  }
+
+  set replyTo(replyTo: MessageReplyPreview | null) {
+    this.props.replyTo = replyTo
+  }
+
   get createdAt() {
     return this.props.createdAt
   }
 
   static create(
-    props: Optional<MessageProps, 'createdAt'>,
+    props: Optional<MessageProps, 'createdAt' | 'replyToId' | 'replyTo'>,
     id?: UniqueEntityId
   ) {
     const message = new Message(
       {
         ...props,
+        replyToId: props.replyToId ?? null,
+        replyTo: props.replyTo ?? null,
         createdAt: props.createdAt ?? new Date(),
       },
       // ULID em vez do UUID v4 padrão: ordenável por tempo, usado como

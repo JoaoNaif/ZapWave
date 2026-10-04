@@ -24,6 +24,16 @@ export class PrismaMessageRepository implements MessageRepository {
     return PrismaMessageMapper.toDomain(message)
   }
 
+  async findManyByIds(ids: string[]): Promise<Message[]> {
+    if (ids.length === 0) return []
+
+    const messages = await this.prisma.message.findMany({
+      where: { id: { in: ids } },
+    })
+
+    return messages.map(PrismaMessageMapper.toDomain)
+  }
+
   async findByClientMessageId(
     conversationId: string,
     senderId: string,
@@ -79,6 +89,7 @@ export class PrismaMessageRepository implements MessageRepository {
         sender_id AS "senderId",
         body,
         client_message_id AS "clientMessageId",
+        reply_to_id AS "replyToId",
         created_at AS "createdAt"
       FROM messages
       WHERE conversation_id = ANY(${conversationIds})

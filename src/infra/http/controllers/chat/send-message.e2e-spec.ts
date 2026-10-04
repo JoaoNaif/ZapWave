@@ -79,6 +79,7 @@ describe('Send Message (e2e)', () => {
         senderId: owner.userId,
         body: 'oi, tudo bem?',
         clientMessageId: null,
+        replyTo: null,
         createdAt: expect.any(String),
       },
     })
@@ -255,6 +256,62 @@ describe('Send Message (e2e)', () => {
       .send({ conversationId: faker.string.uuid(), body: 'oi' })
 
     expect(response.statusCode).toBe(404)
+  })
+
+  test('[POST] /message replying to a message returns the preview and persists replyToId', async () => {
+    const { owner, roomId } = await createRoom()
+
+    const original = await owner.agent
+      .post('/message')
+      .send({ conversationId: roomId, body: 'a'.repeat(150) })
+
+    const response = await owner.agent.post('/message').send({
+      conversationId: roomId,
+      body: 'resposta',
+      replyToId: original.body.message.id,
+    })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.body.message.replyTo).toEqual({
+      id: original.body.message.id,
+      senderId: owner.userId,
+      body: 'a'.repeat(100) + '…',
+    })
+
+    const messageOnDatabase = await prisma.message.findUnique({
+      where: { id: response.body.message.id },
+    })
+
+    expect(messageOnDatabase?.replyToId).toBe(original.body.message.id)
+  })
+
+  test('[POST] /message replying to a message of another conversation fails', async () => {
+    const first = await createRoom()
+    const second = await createRoom()
+
+    const foreign = await second.owner.agent
+      .post('/message')
+      .send({ conversationId: second.roomId, body: 'de outra sala' })
+
+    const response = await first.owner.agent.post('/message').send({
+      conversationId: first.roomId,
+      body: 'resposta',
+      replyToId: foreign.body.message.id,
+    })
+
+    expect(response.statusCode).toBe(404)
+  })
+
+  test('[POST] /message with an invalid replyToId fails', async () => {
+    const { owner, roomId } = await createRoom()
+
+    const response = await owner.agent.post('/message').send({
+      conversationId: roomId,
+      body: 'resposta',
+      replyToId: 'not-an-ulid',
+    })
+
+    expect(response.statusCode).toBe(400)
   })
 
   test('[POST] /message by a user who is not a member fails', async () => {

@@ -8,6 +8,7 @@ import { InMemoryDevicesRepository } from 'test/repositories/in-memory-devices-r
 import { makeConversationMember } from 'test/factories/make-conversation-member'
 import { makeConversation } from 'test/factories/make-conversation'
 import { makeDevice } from 'test/factories/make-device'
+import { makeMessage } from 'test/factories/make-message'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { ResourceNotFoundError } from '@/core/errors/err/resource-not-found'
 
@@ -380,6 +381,153 @@ describe('Send Message', () => {
     })
 
     expect(inMemoryMessageRepository.items).toHaveLength(2)
+  })
+
+  describe('reply', () => {
+    beforeEach(async () => {
+      await inMemoryConversationMemberRepository.create(
+        makeConversationMember({
+          userId: new UniqueEntityId('user-1'),
+          conversationId: new UniqueEntityId('conversation-1'),
+        })
+      )
+    })
+
+    it('should be able to reply to a message of the same conversation', async () => {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          {
+            conversationId: new UniqueEntityId('conversation-1'),
+            senderId: new UniqueEntityId('user-2'),
+            body: 'original',
+          },
+          new UniqueEntityId('original-1')
+        )
+      )
+
+      const result = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        replyToId: 'original-1',
+      })
+
+      expect(result.isRight()).toBe(true)
+      if (result.isRight()) {
+        expect(result.value.message.replyTo).toEqual({
+          id: 'original-1',
+          senderId: 'user-2',
+          body: 'original',
+        })
+      }
+      expect(inMemoryMessageRepository.items[1].replyToId?.toString()).toBe(
+        'original-1'
+      )
+      // o preview vai junto no que é publicado no stream
+      expect(inMemoryMessageStream.published[0].message.replyTo?.body).toBe(
+        'original'
+      )
+    })
+
+    it('should truncate the replied message body in the preview', async () => {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          {
+            conversationId: new UniqueEntityId('conversation-1'),
+            body: 'a'.repeat(150),
+          },
+          new UniqueEntityId('original-1')
+        )
+      )
+
+      const result = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        replyToId: 'original-1',
+      })
+
+      expect(result.isRight()).toBe(true)
+      if (result.isRight()) {
+        expect(result.value.message.replyTo?.body).toBe('a'.repeat(100) + '…')
+      }
+    })
+
+    it('should set replyTo to null when it is not a reply', async () => {
+      const result = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'oi',
+      })
+
+      expect(result.isRight()).toBe(true)
+      if (result.isRight()) {
+        expect(result.value.message.replyTo).toBeNull()
+      }
+    })
+
+    it('should not be able to reply to a message that does not exist', async () => {
+      const result = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        replyToId: 'ghost-message',
+      })
+
+      expect(result.isLeft()).toBe(true)
+      expect(result.value).toBeInstanceOf(ResourceNotFoundError)
+      expect(inMemoryMessageRepository.items).toHaveLength(0)
+      expect(inMemoryMessageStream.published).toHaveLength(0)
+    })
+
+    it('should not be able to reply to a message of another conversation', async () => {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          { conversationId: new UniqueEntityId('conversation-2') },
+          new UniqueEntityId('original-1')
+        )
+      )
+
+      const result = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        replyToId: 'original-1',
+      })
+
+      expect(result.isLeft()).toBe(true)
+      expect(result.value).toBeInstanceOf(ResourceNotFoundError)
+      expect(inMemoryMessageRepository.items).toHaveLength(1)
+    })
+
+    it('should keep the reply preview when the same clientMessageId is retried', async () => {
+      await inMemoryMessageRepository.create(
+        makeMessage(
+          { conversationId: new UniqueEntityId('conversation-1') },
+          new UniqueEntityId('original-1')
+        )
+      )
+
+      const first = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        clientMessageId: 'client-1',
+        replyToId: 'original-1',
+      })
+      const retry = await sut.execute({
+        senderId: 'user-1',
+        conversationId: 'conversation-1',
+        body: 'resposta',
+        clientMessageId: 'client-1',
+        replyToId: 'original-1',
+      })
+
+      expect(first.isRight() && retry.isRight()).toBe(true)
+      if (first.isRight() && retry.isRight()) {
+        expect(retry.value.message.replyTo).toEqual(first.value.message.replyTo)
+      }
+    })
   })
 
   it('should not be able to send a message to a conversation the sender is not a member of', async () => {

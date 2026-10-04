@@ -102,6 +102,7 @@ describe('Fetch Conversation History (e2e)', () => {
           senderId: owner.userId,
           body: 'message 2',
           clientMessageId: null,
+          replyTo: null,
           createdAt: expect.any(String),
         },
         {
@@ -110,6 +111,7 @@ describe('Fetch Conversation History (e2e)', () => {
           senderId: owner.userId,
           body: 'message 1',
           clientMessageId: null,
+          replyTo: null,
           createdAt: expect.any(String),
         },
       ],

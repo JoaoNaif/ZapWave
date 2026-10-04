@@ -116,8 +116,10 @@ Mensagem. Imutável.
 | `senderId` | uuid → User | |
 | `body` | text | |
 | `clientMessageId` | text? | **recomendado**: id gerado pelo cliente, para deduplicar quando ele reenvia após reconexão (idempotência) |
+| `replyToId` | ULID? → Message | resposta a outra mensagem **da mesma conversa** (`POST /message` valida; senão 404). FK com `ON DELETE SET NULL`: se a original sumir, a resposta fica com `replyTo: null` |
 | `createdAt` | timestamptz | |
 
+- **Preview da resposta** (`MessageDto.replyTo = { id, senderId, body } | null`, body cortado em 100 chars): só `replyToId` é persistido. No envio, o `SendMessageUseCase` busca a original (já precisa dela para validar) e o preview vai nos campos do `XADD` (`replyToId`/`replyToSenderId`/`replyToBody`), porque o `enrich.transform` é síncrono e sem I/O — o fan-out não consulta nada por device. No histórico, uma consulta em lote (`findManyByIds`) por página. O preview do stream é um snapshot do envio.
 - Sem `editedAt` / `deletedAt` por enquanto (decisão: imutável).
 
 ### 3.6 `Device`
